@@ -23,6 +23,7 @@ public:
 	void SetTeam(int Team);
 	int GetTeam() const { return m_Team; };
 	int GetCID() const { return m_ClientID; };
+	int GetCUID() const { return m_ClientUID; };
 
 	void Tick();
 	void PostTick();
@@ -107,6 +108,7 @@ private:
 	bool m_Spawning;
 	int m_ClientID;
 	int m_Team;
+	int m_ClientUID;
 };
 
 #endif

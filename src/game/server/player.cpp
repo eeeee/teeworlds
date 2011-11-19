@@ -9,6 +9,8 @@ MACRO_ALLOC_POOL_ID_IMPL(CPlayer, MAX_CLIENTS)
 
 IServer *CPlayer::Server() const { return m_pGameServer->Server(); }
 
+int uidcnt = 0;
+
 CPlayer::CPlayer(CGameContext *pGameServer, int ClientID, int Team)
 {
 	m_pGameServer = pGameServer;
@@ -21,6 +23,8 @@ CPlayer::CPlayer(CGameContext *pGameServer, int ClientID, int Team)
 	m_SpectatorID = SPEC_FREEVIEW;
 	m_LastActionTick = Server()->Tick();
 	m_TeamChangeTick = Server()->Tick();
+	uidcnt = (uidcnt + 1) & ( (1 << 16) - 1);
+	m_ClientUID = ClientID + (uidcnt << 8);
 }
 
 CPlayer::~CPlayer()
