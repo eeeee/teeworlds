@@ -103,6 +103,14 @@ class CCharacter *CGameContext::GetPlayerChar(int ClientID)
 	return m_apPlayers[ClientID]->GetCharacter();
 }
 
+class CPlayer *CGameContext::GetPlayerByUID(int ClientUID)
+{
+	int id = ClientUID & ((1 << 8) - 1);
+	if (m_apPlayers[id] == 0)  return 0;
+	if (m_apPlayers[id]->GetCUID() != ClientUID) return 0;
+	return m_apPlayers[id];
+}
+
 void CGameContext::CreateDamageInd(vec2 Pos, float Angle, int Amount, int64_t Mask)
 {
 	float a = 3 * 3.14159f / 2 + Angle;

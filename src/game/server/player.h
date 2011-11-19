@@ -23,6 +23,7 @@ public:
 	void SetTeam(int Team);
 	int GetTeam() const { return m_Team; };
 	int GetCID() const { return m_ClientID; };
+	int GetCUID() const { return m_ClientUID; };
 
 	void Tick();
 	void PostTick();
@@ -164,6 +165,7 @@ public:
 #if defined(CONF_SQL)
 	int64 m_LastSQLQuery;
 #endif
+	int m_ClientUID;
 };
 
 #endif

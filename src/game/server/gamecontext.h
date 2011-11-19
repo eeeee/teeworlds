@@ -85,6 +85,7 @@ public:
 
 	// helper functions
 	class CCharacter *GetPlayerChar(int ClientID);
+	class CPlayer* GetPlayerByUID(int ClientUID);
 
 	// voting
 	void StartVote(const char *pDesc, const char *pCommand, const char *pReason);
