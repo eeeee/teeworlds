@@ -144,6 +144,8 @@ void CPlayer::PostTick()
 		m_ViewPos = GameServer()->m_apPlayers[m_SpectatorID]->m_ViewPos;
 }
 
+const char DbgStateChars[] = "FISZB";
+
 void CPlayer::Snap(int SnappingClient)
 {
 #ifdef CONF_DEBUG
@@ -160,7 +162,14 @@ void CPlayer::Snap(int SnappingClient)
 	if(!pClientInfo)
 		return;
 
-	StrToInts(&pClientInfo->m_Name0, 4, Server()->ClientName(m_ClientID));
+        if (g_Config.m_SvScoringDebug && m_pCharacter)
+        {
+                char dbgName[200];
+                str_format(dbgName, sizeof(dbgName), "%c%d::%d%s", DbgStateChars[m_pCharacter->m_State], m_pCharacter->m_Killer, m_ClientID, Server()->ClientName(m_ClientID));
+                StrToInts(&pClientInfo->m_Name0, 4, dbgName);
+        }
+        else
+		StrToInts(&pClientInfo->m_Name0, 4, Server()->ClientName(m_ClientID));
 	StrToInts(&pClientInfo->m_Clan0, 3, Server()->ClientClan(m_ClientID));
 	pClientInfo->m_Country = Server()->ClientCountry(m_ClientID);
 	if (m_StolenSkin && SnappingClient != m_ClientID && g_Config.m_SvSkinStealAction == 1)

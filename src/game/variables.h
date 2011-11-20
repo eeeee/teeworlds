@@ -85,6 +85,14 @@ MACRO_CONFIG_INT(SvMapUpdateRate, sv_mapupdaterate, 5, 1, 100, CFGFLAG_SERVER, "
 
 MACRO_CONFIG_INT(SvSkinStealAction, sv_skinstealaction, 0, 0, 1, CFGFLAG_SERVER, "How to punish skin stealing (currently only 1 = force pinky)")
 
+MACRO_CONFIG_INT(SvIntFree, sv_int_free, 2000, 0, 10000, CFGFLAG_SERVER, "Milliseconds for interacted->free transition")
+MACRO_CONFIG_INT(SvBlockedFree, sv_blocked_free, 2000, 0, 10000, CFGFLAG_SERVER, "Milliseconds for blocked->free transition")
+MACRO_CONFIG_INT(SvFrozenInt, sv_frozen_int, 300, 0, 10000, CFGFLAG_SERVER, "Milliseconds for frozen->interacted transition")
+MACRO_CONFIG_INT(SvFrozenBlocked, sv_frozen_blocked, 5000, 0, 10000, CFGFLAG_SERVER, "Milliseconds for frozen->blocked transition")
+MACRO_CONFIG_INT(SvSelfBlocked, sv_self_blocked, 2000, 0, 10000, CFGFLAG_SERVER, "Milliseconds for self-frozen->blocked transition")
+
+MACRO_CONFIG_INT(SvScoringDebug, sv_scoringdebug, 0, 0, 1, CFGFLAG_SERVER, "Scoring debug")
+
 // debug
 #ifdef CONF_DEBUG // this one can crash the server if not used correctly
 	MACRO_CONFIG_INT(DbgDummies, dbg_dummies, 0, 0, 15, CFGFLAG_SERVER, "")

@@ -752,12 +752,7 @@ void CCharacter::Die(int Killer, int Weapon)
 	GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
 
 	// send the kill message
-	CNetMsg_Sv_KillMsg Msg;
-	Msg.m_Killer = Killer;
-	Msg.m_Victim = m_pPlayer->GetCID();
-	Msg.m_Weapon = Weapon;
-	Msg.m_ModeSpecial = ModeSpecial;
-	Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, -1);
+	BlockKill(true);
 
 	// a nice sound
 	GameServer()->CreateSound(m_Pos, SOUND_PLAYER_DIE, Teams()->TeamMask(Team(), -1, m_pPlayer->GetCID()));
@@ -874,6 +869,8 @@ bool CCharacter::TakeDamage(vec2 Force, int Dmg, int From, int Weapon)
 	if(Temp.y > 0 && ((m_TileIndex == TILE_STOP && m_TileFlags == ROTATION_0) || (m_TileIndexT == TILE_STOP && m_TileFlagsT == ROTATION_0) || (m_TileIndexT == TILE_STOPS && (m_TileFlagsT == ROTATION_0 || m_TileFlagsT == ROTATION_180)) || (m_TileIndexT == TILE_STOPA) || (m_TileFIndex == TILE_STOP && m_TileFFlags == ROTATION_0) || (m_TileFIndexT == TILE_STOP && m_TileFFlagsT == ROTATION_0) || (m_TileFIndexT == TILE_STOPS && (m_TileFFlagsT == ROTATION_0 || m_TileFFlagsT == ROTATION_180)) || (m_TileFIndexT == TILE_STOPA) || (m_TileSIndex == TILE_STOP && m_TileSFlags == ROTATION_0) || (m_TileSIndexT == TILE_STOP && m_TileSFlagsT == ROTATION_0) || (m_TileSIndexT == TILE_STOPS && (m_TileSFlagsT == ROTATION_0 || m_TileSFlagsT == ROTATION_180)) || (m_TileSIndexT == TILE_STOPA)))
 		Temp.y = 0;
 	m_Core.m_Vel = Temp;
+
+	Interaction(From);
 
 	return true;
 }
@@ -1458,8 +1455,10 @@ void CCharacter::DDRaceTick()
 	if(m_Input.m_Direction != 0 || m_Input.m_Jump != 0)
 		m_LastMove = Server()->Tick();
 
+	m_Frozen = false;
 	if(m_FreezeTime > 0 || m_FreezeTime == -1)
 	{
+		m_Frozen = true;
 		if (m_FreezeTime % Server()->TickSpeed() == 0 || m_FreezeTime == -1)
 		{
 			GameServer()->CreateDamageInd(m_Pos, 0, m_FreezeTime / Server()->TickSpeed(), Teams()->TeamMask(Team(), -1, m_pPlayer->GetCID()));
@@ -1476,6 +1475,7 @@ void CCharacter::DDRaceTick()
 	}
 
 	m_Core.m_Id = GetPlayer()->GetCID();
+	DDWarTick();
 }
 
 
@@ -1591,4 +1591,119 @@ void CCharacter::DDRaceInit()
 	m_EndlessHook = g_Config.m_SvEndlessDrag;
 	m_Hit = g_Config.m_SvHit ? HIT_ALL : DISABLE_HIT_GRENADE|DISABLE_HIT_HAMMER|DISABLE_HIT_RIFLE|DISABLE_HIT_SHOTGUN;
 	Teams()->m_Core.SetSolo(m_pPlayer->GetCID(), false);
+}
+
+void CCharacter::DDWarTick()
+{
+	if (m_Core.m_HookedPlayer != -1)
+	{
+		CCharacter* hooked = GameServer()->GetPlayerChar(m_Core.m_HookedPlayer);
+		if (hooked)
+			hooked->Interaction(GetPlayer()->GetCID());
+	}
+	if (m_Frozen)
+		m_LastFrozen = Server()->Tick();
+	if (m_State == BS_FREE)
+        {
+                if (m_Killer != -1) NewState(BS_INTERACTED);
+                else if (m_Frozen) NewState(BS_SELFFREEZED);
+        } else if (m_State == BS_SELFFREEZED)
+        {
+                if (Ago(m_LastStateChange, g_Config.m_SvSelfBlocked)) NewState(BS_BLOCKED);
+                else if (!m_Frozen) NewState(BS_FREE);
+        } else if (m_State == BS_INTERACTED)
+        {
+                if (m_Frozen) NewState(BS_FROZEN);
+                else if (Ago(m_KillerTick, g_Config.m_SvIntFree)) NewState(BS_FREE);
+        } else if (m_State == BS_FROZEN)
+        {
+                if (Ago(m_LastStateChange, g_Config.m_SvFrozenBlocked)) NewState(BS_BLOCKED);
+                else if (Ago(m_LastFrozen, g_Config.m_SvFrozenInt)) NewState(BS_INTERACTED);
+        } else if (m_State == BS_BLOCKED)
+        {
+                if (Ago(m_LastFrozen, g_Config.m_SvBlockedFree) && !Ago(m_pPlayer->m_LastActionTick, 500)) NewState(BS_FREE);
+        }
+}
+
+void CCharacter::Interaction(int with)
+{
+	if (!GameServer()->m_apPlayers[with]) return;
+	with = GameServer()->m_apPlayers[with]->GetCUID();
+	if (with == GetPlayer()->GetCUID()) return;
+	if (m_State == BS_FREE || m_State == BS_INTERACTED) SetKiller(with);
+	if (m_State == BS_BLOCKED) SetHelper(with);
+}
+
+void CCharacter::SetKiller(int killerUID)
+{
+	m_Killer = killerUID;
+	m_KillerTick = Server()->Tick();
+}
+
+void CCharacter::SetHelper(int helperUID)
+{
+	m_Helper = helperUID;
+	m_HelperTick = Server()->Tick();
+}
+
+bool CCharacter::Ago(int tick, int millis)
+{
+	return (tick < Server()->Tick()-Server()->TickSpeed()*millis/1000);
+}
+
+void CCharacter::NewState(int state)
+{
+	if (state == BS_FREE)
+	{
+		BlockHelp();
+		SetKiller(-1);
+		SetHelper(-1);
+	}
+	if (state == BS_BLOCKED)
+	{
+		BlockKill(false);
+	}
+	m_State = state;
+	m_LastStateChange = Server()->Tick();
+}
+
+void CCharacter::BlockHelp()
+{
+	if (!Ago(m_HelperTick, 4000) && m_Helper != -1)
+	{
+		CPlayer* helper = GameServer()->GetPlayerByUID(m_Helper);
+		if (helper)
+		{
+			dbg_msg("","%d helped %d!", helper->GetCID(), GetPlayer()->GetCID());
+
+			CNetMsg_Sv_KillMsg Msg;
+			Msg.m_Killer = helper->GetCID();
+			Msg.m_Victim = GetPlayer()->GetCID();
+			Msg.m_Weapon = WEAPON_RIFLE;
+			Msg.m_ModeSpecial = 0;
+			Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, -1);
+		}
+	}
+}
+
+void CCharacter::BlockKill(bool dead)
+{
+	if (m_Helper == m_Killer)
+		SetHelper(-1);
+	CPlayer* killer = GameServer()->GetPlayerByUID(m_Killer);
+	int killerID = GetPlayer()->GetCID();
+	if (killer)
+		killerID = killer->GetCID();
+	if (!dead && killerID == GetPlayer()->GetCID())
+		return;
+
+	CNetMsg_Sv_KillMsg Msg;
+	Msg.m_Killer = killerID;
+	Msg.m_Victim = GetPlayer()->GetCID();
+	Msg.m_Weapon = dead ? WEAPON_NINJA : WEAPON_HAMMER;
+	Msg.m_ModeSpecial = 0;
+	Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, -1);
+
+	dbg_msg("","%d killed %d!", killerID, GetPlayer()->GetCID());
+	m_Killer = -1;
 }

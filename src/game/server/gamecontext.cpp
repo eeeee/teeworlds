@@ -1305,6 +1305,8 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 	}
 	else if (MsgID == NETMSGTYPE_CL_KILL && !m_World.m_Paused)
 	{
+		if(pPlayer->GetCharacter() && pPlayer->GetCharacter()->m_State == BS_INTERACTED)
+			return;
 		if(m_VoteCloseTime && m_VoteCreator == ClientID && GetDDRaceTeam(ClientID))
 		{
 			SendChatTarget(ClientID, "You are running a vote please try again after the vote is done!");

@@ -211,6 +211,26 @@ public:
 	vec2 m_Intersection;
 	bool m_EyeEmote;
 	int64 m_LastStartWarning;
+
+	//ddwar stuff
+	int m_Killer;
+	int m_KillerTick;
+	int m_Helper;
+	int m_HelperTick;
+	int m_LastStateChange;
+	int m_LastFrozen;
+	int m_State;
+	bool m_Frozen;
+
+	void DDWarTick();
+	void Interaction(int with);
+	bool Ago(int tick, int millis);
+	void NewState(int state);
+	void SetKiller(int killerUID);
+	void SetHelper(int heplerUID);
+	void BlockHelp();
+	void BlockKill(bool dead);
+
 	// Setters/Getters because i don't want to modify vanilla vars access modifiers
 	int GetLastWeapon() { return m_LastWeapon; };
 	void SetLastWeapon(int LastWeap) {m_LastWeapon = LastWeap; };
@@ -242,4 +262,12 @@ enum
 	DDRACE_FINISHED
 };
 
+enum
+{
+	BS_FREE = 0,
+	BS_INTERACTED,
+	BS_SELFFREEZED,
+	BS_FROZEN,
+	BS_BLOCKED
+};
 #endif
