@@ -85,6 +85,7 @@ bool CCharacter::Spawn(CPlayer *pPlayer, vec2 Pos)
 	GameServer()->m_pController->OnCharacterSpawn(this);
 
 	DDRaceInit();
+	NewState(BS_FREE);
 
 	return true;
 }
@@ -1633,7 +1634,8 @@ void CCharacter::Interaction(int with)
 	if (with == GetPlayer()->GetCUID()) return;
 	if (m_State == BS_FREE || m_State == BS_INTERACTED || (m_Killer == with && m_State == BS_FROZEN))
 		SetKiller(with);
-	if (m_State == BS_BLOCKED) SetHelper(with);
+	if (m_State == BS_BLOCKED && !Ago(m_LastFrozen, 3))
+		SetHelper(with);
 }
 
 void CCharacter::SetKiller(int killerUID)
