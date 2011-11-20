@@ -1627,10 +1627,12 @@ void CCharacter::DDWarTick()
 
 void CCharacter::Interaction(int with)
 {
+	if (with < 0 || with >= MAX_CLIENTS) return;
 	if (!GameServer()->m_apPlayers[with]) return;
 	with = GameServer()->m_apPlayers[with]->GetCUID();
 	if (with == GetPlayer()->GetCUID()) return;
-	if (m_State == BS_FREE || m_State == BS_INTERACTED) SetKiller(with);
+	if (m_State == BS_FREE || m_State == BS_INTERACTED || (m_Killer == with && m_State == BS_FROZEN))
+		SetKiller(with);
 	if (m_State == BS_BLOCKED) SetHelper(with);
 }
 
@@ -1674,14 +1676,15 @@ void CCharacter::BlockHelp()
 		CPlayer* helper = GameServer()->GetPlayerByUID(m_Helper);
 		if (helper)
 		{
-			dbg_msg("","%d helped %d!", helper->GetCID(), GetPlayer()->GetCID());
-
-			CNetMsg_Sv_KillMsg Msg;
-			Msg.m_Killer = helper->GetCID();
-			Msg.m_Victim = GetPlayer()->GetCID();
-			Msg.m_Weapon = WEAPON_RIFLE;
-			Msg.m_ModeSpecial = 0;
-			Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, -1);
+			if (g_Config.m_SvShowHelpers)
+			{
+				CNetMsg_Sv_KillMsg Msg;
+				Msg.m_Killer = helper->GetCID();
+				Msg.m_Victim = GetPlayer()->GetCID();
+				Msg.m_Weapon = WEAPON_RIFLE;
+				Msg.m_ModeSpecial = 0;
+				Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, -1);
+			}
 		}
 	}
 }
@@ -1697,13 +1700,15 @@ void CCharacter::BlockKill(bool dead)
 	if (!dead && killerID == GetPlayer()->GetCID())
 		return;
 
-	CNetMsg_Sv_KillMsg Msg;
-	Msg.m_Killer = killerID;
-	Msg.m_Victim = GetPlayer()->GetCID();
-	Msg.m_Weapon = dead ? WEAPON_NINJA : WEAPON_HAMMER;
-	Msg.m_ModeSpecial = 0;
-	Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, -1);
+	if (dead || g_Config.m_SvShowKillers)
+	{
+		CNetMsg_Sv_KillMsg Msg;
+		Msg.m_Killer = killerID;
+		Msg.m_Victim = GetPlayer()->GetCID();
+		Msg.m_Weapon = dead ? WEAPON_NINJA : WEAPON_HAMMER;
+		Msg.m_ModeSpecial = 0;
+		Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, -1);
+	}
 
-	dbg_msg("","%d killed %d!", killerID, GetPlayer()->GetCID());
 	m_Killer = -1;
 }
