@@ -87,7 +87,7 @@ class CCharacter *CGameContext::GetPlayerChar(int ClientID)
 class CPlayer *CGameContext::GetPlayerByUID(int ClientUID)
 {
 	int id = ClientUID & ((1 << 8) - 1);
-	if (m_apPlayers[id] == 0)  return 0;
+	if (id < 0 || id >= MAX_CLIENTS || !m_apPlayers[id]) return 0;
 	if (m_apPlayers[id]->GetCUID() != ClientUID) return 0;
 	return m_apPlayers[id];
 }
