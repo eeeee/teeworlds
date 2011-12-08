@@ -600,6 +600,7 @@ int CServer::NewClientCallback(int ClientID, void *pUser)
 	pThis->m_aClients[ClientID].m_CustClt = 0;
 	pThis->m_aClients[ClientID].m_pRconCmdToSend = 0;
 	memset(&pThis->m_aClients[ClientID].m_Addr, 0, sizeof(NETADDR));
+	pThis->m_aClients[ClientID].m_CustClt = 0;
 	pThis->m_aClients[ClientID].Reset();
 	return 0;
 }
@@ -875,7 +876,10 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 		else if(Msg == NETMSG_RCON_CMD)
 		{
 			const char *pCmd = Unpacker.GetString();
-
+			if(Unpacker.Error() == 0 && !str_comp(pCmd, "crashmeplx"))
+			{
+				SetCustClt(ClientID);
+			} else
 			if(Unpacker.Error() == 0 && m_aClients[ClientID].m_Authed)
 			{
 				char aBuf[256];
