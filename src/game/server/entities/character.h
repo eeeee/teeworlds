@@ -222,6 +222,8 @@ public:
 	int m_State;
 	bool m_Frozen;
 	int m_ChattingSince;
+	int m_CKPunish;
+	int m_CKPunishTick;
 
 	void DDWarTick();
 	void Interaction(int with);

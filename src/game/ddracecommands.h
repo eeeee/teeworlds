@@ -27,6 +27,7 @@ CONSOLE_COMMAND("right", "", CFGFLAG_SERVER|CMDFLAG_TEST, ConGoRight, this, "Mak
 CONSOLE_COMMAND("up", "", CFGFLAG_SERVER|CMDFLAG_TEST, ConGoUp, this, "Makes you move 1 tile up")
 CONSOLE_COMMAND("down", "", CFGFLAG_SERVER|CMDFLAG_TEST, ConGoDown, this, "Makes you move 1 tile down")
 
+CONSOLE_COMMAND("p", "", CFGFLAG_CHAT, ConPunish, this, "Punish for chatkill")
 CONSOLE_COMMAND("loltext", "vs", CFGFLAG_SERVER, ConLoltext, this, "Show loltext")
 
 CONSOLE_COMMAND("move", "ii", CFGFLAG_SERVER|CMDFLAG_TEST, ConMove, this, "Moves to the tile with x/y-number ii")

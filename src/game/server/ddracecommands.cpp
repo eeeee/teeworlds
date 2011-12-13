@@ -14,6 +14,44 @@
 
 bool CheckClientID(int ClientID);
 
+void CGameContext::ConPunish(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	if(!CheckClientID(pResult->m_ClientID)) return;
+
+        CCharacter* pChr = pSelf->GetPlayerChar(pResult->m_ClientID);
+
+        if(!pChr)
+                return;
+
+	if (pChr->m_CKPunishTick == 0)
+		return;
+        CPlayer* pFgtPlayer = pSelf->GetPlayerByUID(pChr->m_CKPunish);
+	if (!pFgtPlayer)
+		return;
+        CCharacter* pFgt = pSelf->GetPlayerChar(pFgtPlayer->GetCID());
+        if(!pFgt)
+                return;
+
+	pChr->m_CKPunishTick = 0;
+	pChr->m_CKPunish = 0;
+
+	if (g_Config.m_SvChatblockPunish > 0)
+	{
+		pFgt->m_FreezeTime = g_Config.m_SvChatblockPunish * pSelf->Server()->TickSpeed();
+	}
+	if (g_Config.m_SvChatblockPunish == -1)
+	{
+		vec2 tmp = pChr->Core()->m_Pos;
+		pChr->Core()->m_Pos = pFgt->Core()->m_Pos;
+		pFgt->Core()->m_Pos = tmp;
+	}
+
+	char aBuf[200];
+	str_format(aBuf, sizeof(aBuf), "You were punished by %s for chatkilling him!", pSelf->Server()->ClientName(pResult->m_ClientID));
+	pSelf->SendChatTarget(pFgtPlayer->GetCID(), aBuf);
+}
+
 void CGameContext::ConLoltext(IConsole::IResult *pResult, void *pUserData)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;

@@ -88,6 +88,8 @@ bool CCharacter::Spawn(CPlayer *pPlayer, vec2 Pos)
 	DDRaceInit();
 	NewState(BS_FREE);
 	m_ChattingSince = 0;
+	m_CKPunishTick = 0;
+	m_CKPunish = 0;
 
 	return true;
 }
@@ -1003,9 +1005,17 @@ void CCharacter::HandleBroadcast()
 	if(Server()->Tick() - m_RefreshTime >= Server()->TickSpeed())
 	{
 		char aTmp[128];
-		if( g_Config.m_SvBroadcast[0] != 0 && (Server()->Tick() > (m_LastBroadcast + (Server()->TickSpeed() * 9))))
+		if( (g_Config.m_SvBroadcast[0] != 0 || m_CKPunishTick != 0) && (Server()->Tick() > (m_LastBroadcast + (Server()->TickSpeed() * 9))))
 		{
-			str_format(aTmp, sizeof(aTmp), "%s", g_Config.m_SvBroadcast);
+			if (m_CKPunishTick == 0)
+				str_format(aTmp, sizeof(aTmp), "%s", g_Config.m_SvBroadcast);
+			else
+			{
+				CPlayer* killer = GameServer()->GetPlayerByUID(m_CKPunish);
+				if (!killer)
+					return;
+				str_format(aTmp, sizeof(aTmp), "%s chatkilled you. Type /p to punish!", Server()->ClientName(killer->GetCID()));
+			}
 			GameServer()->SendBroadcast(aTmp, m_pPlayer->GetCID());
 			m_LastBroadcast = Server()->Tick();
 		}
@@ -1598,6 +1608,11 @@ void CCharacter::DDRaceInit()
 
 void CCharacter::DDWarTick()
 {
+	if (Ago(m_CKPunishTick, 10000))
+	{
+		m_CKPunishTick = 0;
+		m_CKPunish = 0;
+	}
 	if (m_pPlayer->m_PlayerFlags&PLAYERFLAG_CHATTING)
 	{
 		if (m_ChattingSince == 0 && m_State == BS_FREE)
@@ -1733,6 +1748,12 @@ void CCharacter::BlockKill(bool dead, bool chatblock)
 		vel.x = 0;
 		vel.y = 0;
 		CLoltext::Create(&GameServer()->m_World, this, pos, vel, 200, "CHATKILL", 1, 0);
+		if (g_Config.m_SvChatblockPunish != 0)
+		{
+			m_CKPunish = m_Killer;
+			m_CKPunishTick = Server()->Tick();
+			m_LastBroadcast = 0;
+		}
 	}
 
 	if (dead || g_Config.m_SvShowKillers)
