@@ -96,6 +96,8 @@ MACRO_CONFIG_INT(SvShowKillers, sv_showkillers, 1, 0, 1, CFGFLAG_SERVER, "Show k
 MACRO_CONFIG_INT(SvShowHelpers, sv_showhelpers, 1, 0, 1, CFGFLAG_SERVER, "Show killmsgs for each block help")
 
 
+MACRO_CONFIG_INT(SvLoltextHspace, sv_loltext_hspace, 14, 10, 25, CFGFLAG_SERVER, "horizontal offset between loltext 'pixels'")
+MACRO_CONFIG_INT(SvLoltextVspace, sv_loltext_vspace, 14, 10, 25, CFGFLAG_SERVER, "vertical offset between loltext 'pixels'")
 // debug
 #ifdef CONF_DEBUG // this one can crash the server if not used correctly
 	MACRO_CONFIG_INT(DbgDummies, dbg_dummies, 0, 0, 15, CFGFLAG_SERVER, "")
