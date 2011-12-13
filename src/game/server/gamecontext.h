@@ -212,6 +212,7 @@ private:
 
 	void ModifyWeapons(IConsole::IResult *pResult, void *pUserData, int Weapon, bool Remove);
 	void MoveCharacter(int ClientID, int X, int Y, bool Raw = false);
+	static void ConLoltext(IConsole::IResult *pResult, void *pUserData);
 	static void ConGoLeft(IConsole::IResult *pResult, void *pUserData);
 	static void ConGoRight(IConsole::IResult *pResult, void *pUserData);
 	static void ConGoUp(IConsole::IResult *pResult, void *pUserData);

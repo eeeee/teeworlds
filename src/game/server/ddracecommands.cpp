@@ -10,7 +10,25 @@
 	#include <game/server/score/sql_score.h>
 #endif
 
+#include "entities/loltext.h"
+
 bool CheckClientID(int ClientID);
+
+void CGameContext::ConLoltext(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	if(!CheckClientID(pResult->m_ClientID)) return;
+	vec2 pos;
+	pos.x = 0;
+	pos.y = -100;
+	vec2 vel;
+	vel.x = 0;
+	vel.y = 0;
+	CCharacter* victim = pSelf->GetPlayerChar(pResult->GetVictim());
+	if (!victim)
+		return;
+	CLoltext::Create(&pSelf->m_World, victim, pos, vel, 200, pResult->GetString(0), 1, 0);
+}
 
 void CGameContext::ConGoLeft(IConsole::IResult *pResult, void *pUserData)
 {
