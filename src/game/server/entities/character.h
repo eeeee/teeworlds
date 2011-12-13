@@ -221,6 +221,7 @@ public:
 	int m_LastFrozen;
 	int m_State;
 	bool m_Frozen;
+	int m_ChattingSince;
 
 	void DDWarTick();
 	void Interaction(int with);
@@ -229,7 +230,7 @@ public:
 	void SetKiller(int killerUID);
 	void SetHelper(int heplerUID);
 	void BlockHelp();
-	void BlockKill(bool dead);
+	void BlockKill(bool dead, bool chatblock = false);
 
 	// Setters/Getters because i don't want to modify vanilla vars access modifiers
 	int GetLastWeapon() { return m_LastWeapon; };

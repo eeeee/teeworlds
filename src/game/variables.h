@@ -91,6 +91,8 @@ MACRO_CONFIG_INT(SvFrozenInt, sv_frozen_int, 300, 0, 10000, CFGFLAG_SERVER, "Mil
 MACRO_CONFIG_INT(SvFrozenBlocked, sv_frozen_blocked, 5000, 0, 10000, CFGFLAG_SERVER, "Milliseconds for frozen->blocked transition")
 MACRO_CONFIG_INT(SvSelfBlocked, sv_self_blocked, 2000, 0, 10000, CFGFLAG_SERVER, "Milliseconds for self-frozen->blocked transition")
 
+MACRO_CONFIG_INT(SvChatblockTime, sv_chatblock_time, 7000, 0, 20000, CFGFLAG_SERVER, "Milliseconds for chat to be opened before blockkill to be considered a chatblock")
+
 MACRO_CONFIG_INT(SvScoringDebug, sv_scoringdebug, 0, 0, 1, CFGFLAG_SERVER, "Scoring debug")
 MACRO_CONFIG_INT(SvShowKillers, sv_showkillers, 1, 0, 1, CFGFLAG_SERVER, "Show killmsgs for each block kill")
 MACRO_CONFIG_INT(SvShowHelpers, sv_showhelpers, 1, 0, 1, CFGFLAG_SERVER, "Show killmsgs for each block help")

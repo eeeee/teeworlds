@@ -16,6 +16,7 @@
 #include <game/server/score.h>
 #include "light.h"
 
+#include "loltext.h"
 //input count
 struct CInputCount
 {
@@ -86,6 +87,7 @@ bool CCharacter::Spawn(CPlayer *pPlayer, vec2 Pos)
 
 	DDRaceInit();
 	NewState(BS_FREE);
+	m_ChattingSince = 0;
 
 	return true;
 }
@@ -1596,6 +1598,16 @@ void CCharacter::DDRaceInit()
 
 void CCharacter::DDWarTick()
 {
+	if (m_pPlayer->m_PlayerFlags&PLAYERFLAG_CHATTING)
+	{
+		if (m_ChattingSince == 0 && m_State == BS_FREE)
+			m_ChattingSince = Server()->Tick();
+	}
+	else
+	{
+		if (m_State != BS_FROZEN)
+			m_ChattingSince = 0;
+	}
 	if (m_Core.m_HookedPlayer != -1)
 	{
 		CCharacter* hooked = GameServer()->GetPlayerChar(m_Core.m_HookedPlayer);
@@ -1663,9 +1675,15 @@ void CCharacter::NewState(int state)
 		SetKiller(-1);
 		SetHelper(-1);
 	}
+	if (state == BS_SELFFREEZED)
+	{
+		m_ChattingSince = 0;
+	}
 	if (state == BS_BLOCKED)
 	{
-		BlockKill(false);
+		bool chatblock = (m_ChattingSince!=0 && Ago(m_ChattingSince, g_Config.m_SvChatblockTime));
+		m_ChattingSince = 0;
+		BlockKill(false, chatblock);
 	}
 	m_State = state;
 	m_LastStateChange = Server()->Tick();
@@ -1691,7 +1709,7 @@ void CCharacter::BlockHelp()
 	}
 }
 
-void CCharacter::BlockKill(bool dead)
+void CCharacter::BlockKill(bool dead, bool chatblock)
 {
 	if (m_Helper == m_Killer)
 		SetHelper(-1);
@@ -1701,6 +1719,21 @@ void CCharacter::BlockKill(bool dead)
 		killerID = killer->GetCID();
 	if (!dead && killerID == GetPlayer()->GetCID())
 		return;
+
+	if (chatblock)
+	{
+		char buf[300];
+		str_format(buf, sizeof(buf), "%s chatkilled %s", Server()->ClientName(killerID), Server()->ClientName(GetPlayer()->GetCID()));
+		GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "ddwar", buf);
+
+		vec2 pos;
+		pos.x = 0;
+		pos.y = -100;
+		vec2 vel;
+		vel.x = 0;
+		vel.y = 0;
+		CLoltext::Create(&GameServer()->m_World, this, pos, vel, 200, "CHATKILL", 1, 0);
+	}
 
 	if (dead || g_Config.m_SvShowKillers)
 	{
