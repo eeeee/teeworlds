@@ -180,6 +180,7 @@ public:
 	const char *ClientClan(int ClientID);
 	int ClientCountry(int ClientID);
 	bool ClientIngame(int ClientID);
+	int MaxClients() const;
 
 	virtual int SendMsg(CMsgPacker *pMsg, int Flags, int ClientID);
 	int SendMsgEx(CMsgPacker *pMsg, int Flags, int ClientID, bool System);
@@ -205,6 +206,7 @@ public:
 
 	int BanAdd(NETADDR Addr, int Seconds, const char *pReason);
 	int BanRemove(NETADDR Addr);
+	int BanRemoveAll();
 
 	void PumpNetwork();
 
@@ -217,6 +219,7 @@ public:
 	static void ConKick(IConsole::IResult *pResult, void *pUser);
 	static void ConBan(IConsole::IResult *pResult, void *pUser);
 	static void ConUnban(IConsole::IResult *pResult, void *pUser);
+	static void ConUnbanAll(IConsole::IResult *pResult, void *pUser);
 	static void ConBans(IConsole::IResult *pResult, void *pUser);
  	static void ConStatus(IConsole::IResult *pResult, void *pUser);
 	static void ConShutdown(IConsole::IResult *pResult, void *pUser);

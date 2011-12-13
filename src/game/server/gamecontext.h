@@ -272,6 +272,7 @@ public:
 		VOTE_ENFORCE_NO_ADMIN = VOTE_ENFORCE_YES + 1,
 		VOTE_ENFORCE_YES_ADMIN
 	};
+	int m_VoteEnforcer;
 	void SendRecord(int ClientID);
 	static void SendChatResponse(const char *pLine, void *pUser);
 	static void SendChatResponseAll(const char *pLine, void *pUser);
@@ -282,6 +283,7 @@ public:
 	void ResetTuning();
 
 	int m_ChatResponseTargetID;
+	int m_ChatPrintCBIndex;
 };
 
 inline int64_t CmaskAll() { return -1LL; }
