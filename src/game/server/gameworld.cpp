@@ -191,6 +191,9 @@ void CGameWorld::UpdatePlayerMaps()
 			dist[j].first = distance(GameServer()->m_apPlayers[i]->m_ViewPos, GameServer()->m_apPlayers[j]->m_ViewPos);
 		}
 
+		// always send the player himself
+		dist[i].first = 0;
+
 		// compute reverse map
 		int rMap[MAX_CLIENTS];
 		for (int j = 0; j < MAX_CLIENTS; j++)
@@ -203,9 +206,6 @@ void CGameWorld::UpdatePlayerMaps()
 			if (dist[map[j]].first > 1e9) map[j] = -1;
 			else rMap[map[j]] = j;
 		}
-
-		// always send the player himself
-		dist[i].first = 0;
 
 		std::nth_element(&dist[0], &dist[VANILLA_MAX_CLIENTS - 1], &dist[MAX_CLIENTS], distCompare);
 
