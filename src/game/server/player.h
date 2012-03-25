@@ -20,7 +20,7 @@ public:
 
 	void TryRespawn();
 	void Respawn();
-	void SetTeam(int Team);
+	void SetTeam(int Team, bool DoChatMsg=true);
 	int GetTeam() const { return m_Team; };
 	int GetCID() const { return m_ClientID; };
 	int GetCUID() const { return m_ClientUID; };
@@ -117,36 +117,20 @@ private:
 	// DDRace
 
 public:
-
-	struct PauseInfo
+	enum
 	{
-		CCharacterCore m_Core;
-		int m_StartTime;
-		int m_DDRaceState;
-		int m_FreezeTime;
-		int m_Armor;
-		int m_LastMove;
-		vec2 m_PrevPos;
-		int m_ActiveWeapon;
-		int m_LastWeapon;
-		bool m_Respawn;
-		bool m_aHasWeapon[NUM_WEAPONS];
-		bool m_Super;
-		bool m_DeepFreeze;
-		bool m_EndlessHook;
-		int m_PauseTime;
-		int m_Team;
-		int m_TeleCheckpoint;
-		int m_CpActive;
-		float m_CpCurrent[25];
-		int m_Hit;
-		bool m_Solo;
-	} m_PauseInfo;
+		PAUSED_NONE=0,
+		PAUSED_SPEC,
+		PAUSED_PAUSED,
+		PAUSED_FORCE
+	};
+
+	int m_Paused;
+	int64 m_NextPauseTick;
+
+	void ProcessPause();
 	int m_ForcePauseTime;
-	bool m_InfoSaved;
 	bool IsPlaying();
-	void LoadCharacter();
-	void SaveCharacter();
 	int64 m_Last_KickVote;
 	int64 m_Last_Team;
 	int m_Authed;
@@ -163,6 +147,10 @@ public:
 	int m_Sent1stAfkWarning; // afk timer's 1st warning after 50% of sv_max_afk_time
 	int m_Sent2ndAfkWarning; // afk timer's 2nd warning after 90% of sv_max_afk_time
 	char m_pAfkMsg[160];
+	bool m_EyeEmote;
+	int m_TimerType;
+	int m_DefEmote;
+	int m_DefEmoteReset;
 #if defined(CONF_SQL)
 	int64 m_LastSQLQuery;
 #endif

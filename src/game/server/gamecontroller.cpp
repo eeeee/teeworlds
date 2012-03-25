@@ -439,7 +439,11 @@ void IGameController::ChangeMap(const char *pToMap)
 		return;
 
 	if(m_RoundCount < g_Config.m_SvRoundsPerMap-1)
+	{
+		if(g_Config.m_SvRoundSwap)
+			GameServer()->SwapTeams();
 		return;
+	}
 
 	// handle maprotation
 	const char *pMapRotation = g_Config.m_SvMaprotation;
@@ -744,15 +748,15 @@ void IGameController::Snap(int SnappingClient)
 
 	//pGameInfoObj->m_ScoreLimit = g_Config.m_SvScorelimit;
 	//pGameInfoObj->m_TimeLimit = g_Config.m_SvTimelimit;
-	CCharacter *pChar;
-	CPlayer *pPlayer;
-	if(SnappingClient >= 0)
-		if((pPlayer = GameServer()->m_apPlayers[SnappingClient]))
-			if((pChar = pPlayer->GetCharacter()))
-				pGameInfoObj->m_RoundStartTick = (pChar->m_DDRaceState == DDRACE_STARTED)?pChar->m_StartTime:Server()->Tick();
 
 	pGameInfoObj->m_RoundNum = /*(str_length(g_Config.m_SvMaprotation) && g_Config.m_SvRoundsPerMap) ? g_Config.m_SvRoundsPerMap :*/ 0;
 	pGameInfoObj->m_RoundCurrent = m_RoundCount+1;
+
+	CCharacter *pChr;
+	CPlayer *pPlayer = GameServer()->m_apPlayers[SnappingClient];
+	if(pPlayer && (pPlayer->m_TimerType == 0 || pPlayer->m_TimerType == 2) && SnappingClient >= 0)
+		if((pChr = pPlayer->GetCharacter()))
+			pGameInfoObj->m_RoundStartTick = (pChr->m_DDRaceState == DDRACE_STARTED)?pChr->m_StartTime:m_RoundStartTick;
 }
 
 int IGameController::GetAutoTeam(int NotThisID)

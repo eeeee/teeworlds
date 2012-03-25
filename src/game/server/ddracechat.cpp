@@ -11,6 +11,7 @@
 #endif
 
 bool CheckClientID(int ClientID);
+char* TimerType(int TimerType);
 
 void CGameContext::ConCredits(IConsole::IResult *pResult, void *pUserData)
 {
@@ -317,67 +318,61 @@ void CGameContext::ConTogglePause(IConsole::IResult *pResult, void *pUserData)
 		return;
 	char aBuf[128];
 
+	if(!g_Config.m_SvPauseable)
+	{
+		ConToggleSpec(pResult, pUserData);
+		return;
+	}
+
 	CPlayer *pPlayer = pSelf->m_apPlayers[pResult->m_ClientID];
 	if (!pPlayer)
 		return;
 
-	if (g_Config.m_SvPauseable)
+	if (pPlayer->GetCharacter() == 0)
 	{
-		CCharacter* pChr = pPlayer->GetCharacter();
-		if (!pPlayer->GetTeam() && pChr
-				&& (!pChr->GetWeaponGot(WEAPON_NINJA) || pChr->m_FreezeTime)
-				&& pChr->IsGrounded() && pChr->m_Pos == pChr->m_PrevPos
-				&& !pPlayer->m_InfoSaved)
-		{
-			if (pPlayer->m_LastSetTeam
-					+ pSelf->Server()->TickSpeed() * g_Config.m_SvPauseFrequency
-					<= pSelf->Server()->Tick())
-			{
-				pPlayer->SaveCharacter();
-				pPlayer->m_InfoSaved = true;
-				pPlayer->SetTeam(TEAM_SPECTATORS);
-			}
-			else
-				pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD,
-						"pause", "You can\'t pause that often.");
-		}
-		else if (pPlayer->GetTeam() == TEAM_SPECTATORS && pPlayer->m_InfoSaved
-				&& pPlayer->m_ForcePauseTime == 0)
-		{
-			pPlayer->m_PauseInfo.m_Respawn = true;
-			pPlayer->SetTeam(TEAM_RED);
-			pPlayer->m_InfoSaved = false;
-			//pPlayer->LoadCharacter();//TODO:Check if this system Works
-		}
-		else if (pChr)
-			pSelf->Console()->Print(
-					IConsole::OUTPUT_LEVEL_STANDARD,
-					"pause",
-					pChr->GetWeaponGot(WEAPON_NINJA) ?
-							"You can't use /pause while you are a ninja" :
-							(!pChr->IsGrounded()) ?
-									"You can't use /pause while you are a in air" :
-									"You can't use /pause while you are moving");
-		else if (pPlayer->m_ForcePauseTime > 0)
-		{
-			str_format(aBuf, sizeof(aBuf),
-					"You have been force-paused. %ds left.",
-					pPlayer->m_ForcePauseTime / pSelf->Server()->TickSpeed());
-			pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "pause",
-					aBuf);
-		}
-		else if (pPlayer->m_ForcePauseTime < 0)
-		{
-			pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "pause",
-					"You have been force-paused.");
-		}
-		else
-			pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "pause",
-					"No pause data saved.");
+	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "pause",
+	"You can't pause while you are dead/a spectator.");
 	}
-	else
-		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "pause",
-				"Pause isn't allowed on this server.");
+	if (pPlayer->m_Paused == CPlayer::PAUSED_SPEC && g_Config.m_SvPauseable)
+	{
+		ConToggleSpec(pResult, pUserData);
+		return;
+	}
+
+	if (pPlayer->m_Paused == CPlayer::PAUSED_FORCE)
+	{
+		str_format(aBuf, sizeof(aBuf), "You are force-paused. %ds left.", pPlayer->m_ForcePauseTime/pSelf->Server()->TickSpeed());
+		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "pause", aBuf);
+		return;
+	}
+
+	pPlayer->m_Paused = (pPlayer->m_Paused == CPlayer::PAUSED_PAUSED) ? CPlayer::PAUSED_NONE : CPlayer::PAUSED_PAUSED;
+}
+
+void CGameContext::ConToggleSpec(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	if(!CheckClientID(pResult->m_ClientID)) return;
+	char aBuf[128];
+
+	CPlayer *pPlayer = pSelf->m_apPlayers[pResult->m_ClientID];
+	if(!pPlayer)
+		return;
+
+	if (pPlayer->GetCharacter() == 0)
+	{
+	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "spec",
+	"You can't spec while you are dead/a spectator.");
+	}
+
+	if(pPlayer->m_Paused == CPlayer::PAUSED_FORCE)
+	{
+		str_format(aBuf, sizeof(aBuf), "You are force-paused. %ds left.", pPlayer->m_ForcePauseTime/pSelf->Server()->TickSpeed());
+		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "spec", aBuf);
+		return;
+	}
+
+	pPlayer->m_Paused = (pPlayer->m_Paused == CPlayer::PAUSED_SPEC) ? CPlayer::PAUSED_NONE : CPlayer::PAUSED_SPEC;
 }
 
 void CGameContext::ConTop5(IConsole::IResult *pResult, void *pUserData)
@@ -399,7 +394,7 @@ void CGameContext::ConTop5(IConsole::IResult *pResult, void *pUserData)
 		return;
 	}
 
-	if (pResult->NumArguments() > 0)
+	if (pResult->NumArguments() > 0 && pResult->GetInteger(0) >= 0)
 		pSelf->Score()->ShowTop5(pResult, pResult->m_ClientID, pUserData,
 				pResult->GetInteger(0));
 	else
@@ -607,7 +602,7 @@ void CGameContext::ConMe(IConsole::IResult *pResult, void *pUserData)
 				"/me is disabled on this server, admin can enable it by using sv_slash_me");
 }
 
-void CGameContext::ConToggleEyeEmote(IConsole::IResult *pResult,
+void CGameContext::ConSetEyeEmote(IConsole::IResult *pResult,
 		void *pUserData)
 {
 	CGameContext *pSelf = (CGameContext *) pUserData;
@@ -617,15 +612,25 @@ void CGameContext::ConToggleEyeEmote(IConsole::IResult *pResult,
 	CPlayer *pPlayer = pSelf->m_apPlayers[pResult->m_ClientID];
 	if (!pPlayer)
 		return;
-	CCharacter* pChr = pPlayer->GetCharacter();
-	if (!pChr)
+	if(pResult->NumArguments() == 0) {
+		pSelf->Console()->Print(
+				IConsole::OUTPUT_LEVEL_STANDARD,
+				"emote",
+				(pPlayer->m_EyeEmote) ?
+						"You can now use the preset eye emotes." :
+						"You don't have any eye emotes, remember to bind some. (until you die)");
 		return;
-
-	pChr->m_EyeEmote = !pChr->m_EyeEmote;
+	}
+	else if(str_comp_nocase(pResult->GetString(0), "on") == 0)
+		pPlayer->m_EyeEmote = true;
+	else if(str_comp_nocase(pResult->GetString(0), "off") == 0)
+		pPlayer->m_EyeEmote = false;
+	else if(str_comp_nocase(pResult->GetString(0), "toggle") == 0)
+		pPlayer->m_EyeEmote = !pPlayer->m_EyeEmote;
 	pSelf->Console()->Print(
 			IConsole::OUTPUT_LEVEL_STANDARD,
 			"emote",
-			(pChr->m_EyeEmote) ?
+			(pPlayer->m_EyeEmote) ?
 					"You can now use the preset eye emotes." :
 					"You don't have any eye emotes, remember to bind some. (until you die)");
 }
@@ -646,9 +651,6 @@ void CGameContext::ConEyeEmote(IConsole::IResult *pResult, void *pUserData)
 	CPlayer *pPlayer = pSelf->m_apPlayers[pResult->m_ClientID];
 	if (!pPlayer)
 		return;
-	CCharacter* pChr = pPlayer->GetCharacter();
-	if (!pChr)
-		return;
 
 	if (pResult->NumArguments() == 0)
 	{
@@ -663,25 +665,23 @@ void CGameContext::ConEyeEmote(IConsole::IResult *pResult, void *pUserData)
 	}
 	else
 	{
-		if (pChr)
-		{
 			if(pPlayer->m_LastEyeEmote + g_Config.m_SvEyeEmoteChangeDelay * pSelf->Server()->TickSpeed() >= pSelf->Server()->Tick())
 				return;
 
 			if (!str_comp(pResult->GetString(0), "angry"))
-				pChr->m_DefEmote = EMOTE_ANGRY;
+				pPlayer->m_DefEmote = EMOTE_ANGRY;
 			else if (!str_comp(pResult->GetString(0), "blink"))
-				pChr->m_DefEmote = EMOTE_BLINK;
+				pPlayer->m_DefEmote = EMOTE_BLINK;
 			else if (!str_comp(pResult->GetString(0), "close"))
-				pChr->m_DefEmote = EMOTE_BLINK;
+				pPlayer->m_DefEmote = EMOTE_BLINK;
 			else if (!str_comp(pResult->GetString(0), "happy"))
-				pChr->m_DefEmote = EMOTE_HAPPY;
+				pPlayer->m_DefEmote = EMOTE_HAPPY;
 			else if (!str_comp(pResult->GetString(0), "pain"))
-				pChr->m_DefEmote = EMOTE_PAIN;
+				pPlayer->m_DefEmote = EMOTE_PAIN;
 			else if (!str_comp(pResult->GetString(0), "surprise"))
-				pChr->m_DefEmote = EMOTE_SURPRISE;
+				pPlayer->m_DefEmote = EMOTE_SURPRISE;
 			else if (!str_comp(pResult->GetString(0), "normal"))
-				pChr->m_DefEmote = EMOTE_NORMAL;
+				pPlayer->m_DefEmote = EMOTE_NORMAL;
 			else
 				pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD,
 						"emote", "Unknown emote... Say /emote");
@@ -690,10 +690,9 @@ void CGameContext::ConEyeEmote(IConsole::IResult *pResult, void *pUserData)
 			if (pResult->NumArguments() > 1)
 				Duration = pResult->GetInteger(1);
 
-			pChr->m_DefEmoteReset = pSelf->Server()->Tick()
+			pPlayer->m_DefEmoteReset = pSelf->Server()->Tick()
 							+ Duration * pSelf->Server()->TickSpeed();
 			pPlayer->m_LastEyeEmote = pSelf->Server()->Tick();
-		}
 	}
 }
 
@@ -736,3 +735,121 @@ bool CheckClientID(int ClientID)
 		return false;
 	return true;
 }
+
+char* TimerType(int TimerType)
+{
+	char msg[3][128] = {"game/round timer.", "broadcast.", "both game/round timer and broadcast."};
+	return msg[TimerType];
+}
+void CGameContext::ConSayTime(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *) pUserData;
+	if (!CheckClientID(pResult->m_ClientID))
+		return;
+
+	CPlayer *pPlayer = pSelf->m_apPlayers[pResult->m_ClientID];
+	if (!pPlayer)
+		return;
+	CCharacter* pChr = pPlayer->GetCharacter();
+	if (!pChr)
+		return;
+	if(pChr->m_DDRaceState != DDRACE_STARTED)
+		return;
+
+	char aBuftime[64];
+	int IntTime = (int) ((float) (pSelf->Server()->Tick() - pChr->m_StartTime)
+			/ ((float) pSelf->Server()->TickSpeed()));
+	str_format(aBuftime, sizeof(aBuftime), "Your Time is %s%d:%s%d",
+			((IntTime / 60) > 9) ? "" : "0", IntTime / 60,
+			((IntTime % 60) > 9) ? "" : "0", IntTime % 60);
+	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "time", aBuftime);
+}
+
+void CGameContext::ConSayTimeAll(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *) pUserData;
+	if (!CheckClientID(pResult->m_ClientID))
+		return;
+
+	CPlayer *pPlayer = pSelf->m_apPlayers[pResult->m_ClientID];
+	if (!pPlayer)
+		return;
+	CCharacter* pChr = pPlayer->GetCharacter();
+	if (!pChr)
+		return;
+	if(pChr->m_DDRaceState != DDRACE_STARTED)
+		return;
+
+	char aBuftime[64];
+	int IntTime = (int) ((float) (pSelf->Server()->Tick() - pChr->m_StartTime)
+			/ ((float) pSelf->Server()->TickSpeed()));
+	str_format(aBuftime, sizeof(aBuftime),
+			"%s\'s current race time is %s%d:%s%d",
+			pSelf->Server()->ClientName(pResult->m_ClientID),
+			((IntTime / 60) > 9) ? "" : "0", IntTime / 60,
+			((IntTime % 60) > 9) ? "" : "0", IntTime % 60);
+	pSelf->SendChat(-1, CGameContext::CHAT_ALL, aBuftime, pResult->m_ClientID);
+}
+
+void CGameContext::ConTime(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *) pUserData;
+	if (!CheckClientID(pResult->m_ClientID))
+		return;
+
+	CPlayer *pPlayer = pSelf->m_apPlayers[pResult->m_ClientID];
+	if (!pPlayer)
+		return;
+	CCharacter* pChr = pPlayer->GetCharacter();
+	if (!pChr)
+		return;
+
+	char aBuftime[64];
+	int IntTime = (int) ((float) (pSelf->Server()->Tick() - pChr->m_StartTime)
+			/ ((float) pSelf->Server()->TickSpeed()));
+	str_format(aBuftime, sizeof(aBuftime), "Your Time is %s%d:%s%d",
+				((IntTime / 60) > 9) ? "" : "0", IntTime / 60,
+				((IntTime % 60) > 9) ? "" : "0", IntTime % 60);
+	pSelf->SendBroadcast(aBuftime, pResult->m_ClientID);
+}
+
+void CGameContext::ConSetTimerType(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *) pUserData;
+
+	if (!CheckClientID(pResult->m_ClientID))
+		return;
+
+	CPlayer *pPlayer = pSelf->m_apPlayers[pResult->m_ClientID];
+	if (!pPlayer)
+		return;
+
+	char aBuf[128];
+	if(pPlayer->m_TimerType <= 2 && pPlayer->m_TimerType >= 0)
+		str_format(aBuf, sizeof(aBuf), "Timer is displayed in", TimerType(pPlayer->m_TimerType));
+	else if(pPlayer->m_TimerType == 3)
+		str_format(aBuf, sizeof(aBuf), "Timer isn't displayed.");
+
+	if(pResult->NumArguments() == 0) {
+		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD,"timer",aBuf);
+		return;
+	}
+	else if(str_comp_nocase(pResult->GetString(0), "gametimer") == 0) {
+		pSelf->SendBroadcast("", pResult->m_ClientID);
+		pPlayer->m_TimerType = 0;
+	}
+	else if(str_comp_nocase(pResult->GetString(0), "broadcast") == 0)
+			pPlayer->m_TimerType = 1;
+	else if(str_comp_nocase(pResult->GetString(0), "both") == 0)
+			pPlayer->m_TimerType = 2;
+	else if(str_comp_nocase(pResult->GetString(0), "none") == 0)
+			pPlayer->m_TimerType = 3;
+	else if(str_comp_nocase(pResult->GetString(0), "cycle") == 0) {
+		if(pPlayer->m_TimerType < 3)
+			pPlayer->m_TimerType++;
+		else if(pPlayer->m_TimerType == 3)
+			pPlayer->m_TimerType = 0;
+	}
+	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD,"timer",aBuf);
+}
+

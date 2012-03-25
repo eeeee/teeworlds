@@ -619,6 +619,9 @@ void CCharacter::Tick()
 		m_pPlayer->m_ForceBalanced = false;
 	}*/
 
+	if (m_Paused)
+		return;
+
 	DDRaceTick();
 
 	m_Core.m_Input = m_Input;
@@ -773,8 +776,7 @@ void CCharacter::Die(int Killer, int Weapon)
 	GameServer()->m_World.RemoveEntity(this);
 	GameServer()->m_World.m_Core.m_apCharacters[m_pPlayer->GetCID()] = 0;
 	GameServer()->CreateDeath(m_Pos, m_pPlayer->GetCID(), Teams()->TeamMask(Team(), -1, m_pPlayer->GetCID()));
-	if(!m_pPlayer->m_InfoSaved)
-		((CGameControllerDDRace*)GameServer()->m_pController)->m_Teams.SetForceCharacterTeam(m_pPlayer->GetCID(), 0);
+	Teams()->SetForceCharacterTeam(m_pPlayer->GetCID(), 0);
 }
 
 bool CCharacter::TakeDamage(vec2 Force, int Dmg, int From, int Weapon)
@@ -895,15 +897,17 @@ void CCharacter::Snap(int SnappingClient)
 		return;
 
 	CCharacter* SnapChar = GameServer()->GetPlayerChar(SnappingClient);
-	if(SnapChar && !SnapChar->m_Super &&
-		GameServer()->m_apPlayers[SnappingClient]->GetTeam() != -1 &&
-		!CanCollide(SnappingClient) &&
-		(!GameServer()->m_apPlayers[SnappingClient]->m_IsUsingDDRaceClient ||
-				(GameServer()->m_apPlayers[SnappingClient]->m_IsUsingDDRaceClient &&
-				!GameServer()->m_apPlayers[SnappingClient]->m_ShowOthers
-				)
-			)
-		)
+	CPlayer* SnapPlayer = GameServer()->m_apPlayers[SnappingClient];
+
+	if((SnapPlayer->GetTeam() == TEAM_SPECTATORS || SnapPlayer->m_Paused) && SnapPlayer->m_SpectatorID != -1
+		&& !CanCollide(SnapPlayer->m_SpectatorID) && !SnapPlayer->m_ShowOthers)
+		return;
+
+	if( SnapPlayer->GetTeam() != TEAM_SPECTATORS && !SnapPlayer->m_Paused && SnapChar && !SnapChar->m_Super
+		&& !CanCollide(SnappingClient) && !SnapPlayer->m_ShowOthers)
+		return;
+
+	if (m_Paused)
 		return;
 
 	CNetObj_Character *pCharacter = static_cast<CNetObj_Character *>(Server()->SnapNewItem(NETOBJTYPE_CHARACTER, id, sizeof(CNetObj_Character)));
@@ -927,7 +931,7 @@ void CCharacter::Snap(int SnappingClient)
 	// set emote
 	if (m_EmoteStop < Server()->Tick())
 	{
-		m_EmoteType = m_DefEmote;
+		m_EmoteType = m_pPlayer->m_DefEmote;
 		m_EmoteStop = -1;
 	}
 
@@ -1004,8 +1008,6 @@ CGameTeams* CCharacter::Teams()
 
 void CCharacter::HandleBroadcast()
 {
-	m_Time = (float)(Server()->Tick() - m_StartTime) / ((float)Server()->TickSpeed());
-
 	if(Server()->Tick() - m_RefreshTime >= Server()->TickSpeed())
 	{
 		char aTmp[128];
@@ -1498,10 +1500,10 @@ void CCharacter::DDRaceTick()
 
 void CCharacter::DDRacePostCoreTick()
 {
-	if (m_DefEmoteReset >= 0 && m_DefEmoteReset <= Server()->Tick())
+	if (m_pPlayer->m_DefEmoteReset >= 0 && m_pPlayer->m_DefEmoteReset <= Server()->Tick())
 		{
-			m_DefEmoteReset = -1;
-			m_EmoteType = m_DefEmote = EMOTE_NORMAL;
+		m_pPlayer->m_DefEmoteReset = -1;
+			m_EmoteType = m_pPlayer->m_DefEmote = EMOTE_NORMAL;
 			m_EmoteStop = -1;
 		}
 
@@ -1588,11 +1590,26 @@ void CCharacter::GiveAllWeapons()
 	 return;
 }
 
+void CCharacter::Pause(bool Pause)
+{
+	m_Paused = Pause;
+	if(Pause)
+	{
+		GameServer()->m_World.m_Core.m_apCharacters[m_pPlayer->GetCID()] = 0;
+		GameServer()->m_World.RemoveEntity(this);
+	}
+	else
+	{
+		GameServer()->m_World.m_Core.m_apCharacters[m_pPlayer->GetCID()] = &m_Core;
+		GameServer()->m_World.InsertEntity(this);
+	}
+}
+
 void CCharacter::DDRaceInit()
 {
+	m_Paused = false;
 	m_DDRaceState = DDRACE_NONE;
 	m_PrevPos = m_Pos;
-	m_EyeEmote = true;
 	m_LastBroadcast = 0;
 	m_TeamBeforeSuper = 0;
 	m_Core.m_Id = GetPlayer()->GetCID();
@@ -1602,8 +1619,6 @@ void CCharacter::DDRaceInit()
 		GameServer()->SendChatTarget(GetPlayer()->GetCID(),"Please join a team before you start");
 		m_LastStartWarning = Server()->Tick();
 	}
-	m_DefEmote = EMOTE_NORMAL;
-	m_DefEmoteReset = -1;
 	m_TeleCheckpoint = 0;
 	m_EndlessHook = g_Config.m_SvEndlessDrag;
 	m_Hit = g_Config.m_SvHit ? HIT_ALL : DISABLE_HIT_GRENADE|DISABLE_HIT_HAMMER|DISABLE_HIT_RIFLE|DISABLE_HIT_SHOTGUN;

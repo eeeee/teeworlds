@@ -27,6 +27,7 @@
 #include "gamemodes/DDRace.h"
 #include "score.h"
 #include "score/file_score.h"
+#include <time.h>
 #if defined(CONF_SQL)
 #include "score/sql_score.h"
 #endif
@@ -241,7 +242,15 @@ void CGameContext::CreateSoundGlobal(int Sound, int Target)
 
 	CNetMsg_Sv_SoundGlobal Msg;
 	Msg.m_SoundID = Sound;
-	Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, Target);
+	if(Target == -2)
+		Server()->SendPackMsg(&Msg, MSGFLAG_NOSEND, -1);
+	else
+	{
+		int Flag = MSGFLAG_VITAL;
+		if(Target != -1)
+			Flag |= MSGFLAG_NORECORD;
+		Server()->SendPackMsg(&Msg, Flag, Target);
+	}
 }
 
 
@@ -443,7 +452,23 @@ void CGameContext::SendTuningParams(int ClientID)
 		Msg.AddInt(pParams[i]);
 	Server()->SendMsg(&Msg, MSGFLAG_VITAL, ClientID);
 }
+/*
+void CGameContext::SwapTeams()
+{
+	if(!m_pController->IsTeamplay())
+		return;
+	
+	SendChat(-1, CGameContext::CHAT_ALL, "Teams were swapped");
 
+	for(int i = 0; i < MAX_CLIENTS; ++i)
+	{
+		if(m_apPlayers[i] && m_apPlayers[i]->GetTeam() != TEAM_SPECTATORS)
+			m_apPlayers[i]->SetTeam(m_apPlayers[i]->GetTeam()^1, false);
+	}
+
+	(void)m_pController->CheckTeamBalance();
+}
+*/
 void CGameContext::OnTick()
 {
 	// check tuning
@@ -538,7 +563,9 @@ void CGameContext::OnTick()
 
 			if(m_VoteEnforce == VOTE_ENFORCE_YES)
 			{
+				Server()->SetRconCID(IServer::RCON_CID_VOTE);
 				Console()->ExecuteLine(m_aVoteCommand);
+				Server()->SetRconCID(IServer::RCON_CID_SERV);
 				EndVote();
 				SendChat(-1, CGameContext::CHAT_ALL, "Vote passed");
 
@@ -659,10 +686,39 @@ void CGameContext::OnClientEnter(int ClientID)
 		str_format(aBuf, sizeof(aBuf), "team_join player='%d:%s' team=%d", ClientID, Server()->ClientName(ClientID), m_apPlayers[ClientID]->GetTeam());
 
 		Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
+
+		time_t rawtime;
+		struct tm* timeinfo;
+		char d[16], m [16], y[16];
+		int dd, mm, yy;
+
+		time ( &rawtime );
+		timeinfo = localtime ( &rawtime );
+
+		strftime (d,sizeof(y),"%d",timeinfo);
+		strftime (m,sizeof(m),"%m",timeinfo);
+		strftime (y,sizeof(y),"%Y",timeinfo);
+		dd = atoi(d);
+		mm = atoi(m);
+		yy = atoi(y);
+		if((mm == 12 && dd >= 20))
+		{
+			char aBuf[128];
+			str_format(aBuf, sizeof(aBuf), "Happy %d from GreYFoX", yy+1);
+			SendBroadcast(aBuf, ClientID);
+		}
+		else if(mm == 1 && dd <= 20)
+		{
+			char aBuf[128];
+			str_format(aBuf, sizeof(aBuf), "Happy %d from GreYFoX", yy);
+			SendBroadcast(aBuf, ClientID);
+		}
 	}
 	m_VoteUpdate = true;
 
 	m_apPlayers[ClientID]->m_Authed = ((CServer*)Server())->m_aClients[ClientID].m_Authed;
+
+
 }
 
 void CGameContext::OnClientConnected(int ClientID)
@@ -951,7 +1007,6 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 				char aAddrStr[NETADDR_MAXSTRSIZE] = {0};
 				Server()->GetClientAddr(KickID, aAddrStr, sizeof(aAddrStr));
 				str_format(aCmd, sizeof(aCmd), "ban %s %d Banned by vote", aAddrStr, g_Config.m_SvVoteKickBantime);
-				Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aCmd);
 			}
 			m_apPlayers[ClientID]->m_Last_KickVote = time_get();
 			m_VoteKick = true;
@@ -1042,7 +1097,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 		{
 			//if(m_pController->CanChangeTeam(pPlayer, pMsg->m_Team))
 
-			if(pPlayer->GetTeam()==-1 && pPlayer->m_InfoSaved)
+			if(pPlayer->m_Paused)
 				SendChatTarget(ClientID,"Use /pause first then you can kill");
 			else
 			{
@@ -1113,7 +1168,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			if (!Server()->ReverseTranslate(pMsg->m_SpectatorID, ClientID))
 				return;
 
-		if(pPlayer->GetTeam() != TEAM_SPECTATORS || pPlayer->m_SpectatorID == pMsg->m_SpectatorID || ClientID == pMsg->m_SpectatorID ||
+		if((pPlayer->GetTeam() != TEAM_SPECTATORS && !pPlayer->m_Paused) || pPlayer->m_SpectatorID == pMsg->m_SpectatorID || ClientID == pMsg->m_SpectatorID ||
 			(g_Config.m_SvSpamprotection && pPlayer->m_LastSetSpectatorMode && pPlayer->m_LastSetSpectatorMode+Server()->TickSpeed()*3 > Server()->Tick()))
 			return;
 
@@ -1270,7 +1325,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 
 		SendEmoticon(ClientID, pMsg->m_Emoticon);
 		CCharacter* pChr = pPlayer->GetCharacter();
-		if(pChr && g_Config.m_SvEmotionalTees && pChr->m_EyeEmote)
+		if(pChr && g_Config.m_SvEmotionalTees && pPlayer->m_EyeEmote)
 		{
 			switch(pMsg->m_Emoticon)
 			{
@@ -1317,6 +1372,8 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			return;
 		}
 		if(pPlayer->m_LastKill && pPlayer->m_LastKill+Server()->TickSpeed()*g_Config.m_SvKillDelay > Server()->Tick())
+			return;
+		if(pPlayer->m_Paused)
 			return;
 
 		pPlayer->m_LastKill = Server()->Tick();
@@ -1397,16 +1454,13 @@ void CGameContext::ConSetTeam(IConsole::IResult *pResult, void *pUserData)
 	CGameContext *pSelf = (CGameContext *)pUserData;
 	int ClientID = clamp(pResult->GetInteger(0), 0, (int)MAX_CLIENTS-1);
 	int Team = clamp(pResult->GetInteger(1), -1, 1);
-	int Delay = 0;
-	if(pResult->NumArguments() > 2)
-		Delay = pResult->GetInteger(2);
+	int Delay = pResult->NumArguments()>2 ? pResult->GetInteger(2) : 0;
+	if(!pSelf->m_apPlayers[ClientID])
+		return;
 
 	char aBuf[256];
 	str_format(aBuf, sizeof(aBuf), "moved client %d to team %d", ClientID, Team);
 	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
-
-	if(!pSelf->m_apPlayers[ClientID])
-		return;
 
 	pSelf->m_apPlayers[ClientID]->m_TeamChangeTick = pSelf->Server()->Tick()+pSelf->Server()->TickSpeed()*Delay*60;
 	pSelf->m_apPlayers[ClientID]->SetTeam(Team);
@@ -1419,16 +1473,65 @@ void CGameContext::ConSetTeamAll(IConsole::IResult *pResult, void *pUserData)
 	int Team = clamp(pResult->GetInteger(0), -1, 1);
 
 	char aBuf[256];
-	str_format(aBuf, sizeof(aBuf), "moved all clients to team %d", Team);
-	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
+	str_format(aBuf, sizeof(aBuf), "All players were moved to the %s", pSelf->m_pController->GetTeamName(Team));
+	pSelf->SendChat(-1, CGameContext::CHAT_ALL, aBuf);
 
 	for(int i = 0; i < MAX_CLIENTS; ++i)
 		if(pSelf->m_apPlayers[i])
-			pSelf->m_apPlayers[i]->SetTeam(Team);
+			pSelf->m_apPlayers[i]->SetTeam(Team, false);
 
 	// (void)pSelf->m_pController->CheckTeamBalance();
 }
+/*
+void CGameContext::ConSwapTeams(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	pSelf->SwapTeams();
+}
 
+void CGameContext::ConShuffleTeams(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	if(!pSelf->m_pController->IsTeamplay())
+		return;
+
+	int CounterRed = 0;
+	int CounterBlue = 0;
+	int PlayerTeam = 0;
+	for(int i = 0; i < MAX_CLIENTS; ++i)
+		if(pSelf->m_apPlayers[i] && pSelf->m_apPlayers[i]->GetTeam() != TEAM_SPECTATORS)
+			++PlayerTeam;
+	PlayerTeam = (PlayerTeam+1)/2;
+	
+	pSelf->SendChat(-1, CGameContext::CHAT_ALL, "Teams were shuffled");
+
+	for(int i = 0; i < MAX_CLIENTS; ++i)
+	{
+		if(pSelf->m_apPlayers[i] && pSelf->m_apPlayers[i]->GetTeam() != TEAM_SPECTATORS)
+		{
+			if(CounterRed == PlayerTeam)
+				pSelf->m_apPlayers[i]->SetTeam(TEAM_BLUE, false);
+			else if(CounterBlue == PlayerTeam)
+				pSelf->m_apPlayers[i]->SetTeam(TEAM_RED, false);
+			else
+			{	
+				if(rand() % 2)
+				{
+					pSelf->m_apPlayers[i]->SetTeam(TEAM_BLUE, false);
+					++CounterBlue;
+				}
+				else
+				{
+					pSelf->m_apPlayers[i]->SetTeam(TEAM_RED, false);
+					++CounterRed;
+				}
+			}
+		}
+	}
+
+	// (void)pSelf->m_pController->CheckTeamBalance();
+}
+*/
 void CGameContext::ConAddVote(IConsole::IResult *pResult, void *pUserData)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
@@ -1703,6 +1806,8 @@ void CGameContext::OnConsoleInit()
 	Console()->Register("say", "r", CFGFLAG_SERVER, ConSay, this, "Say in chat");
 	Console()->Register("set_team", "ii?i", CFGFLAG_SERVER, ConSetTeam, this, "Set team of player to team");
 	Console()->Register("set_team_all", "i", CFGFLAG_SERVER, ConSetTeamAll, this, "Set team of all players to team");
+	//Console()->Register("swap_teams", "", CFGFLAG_SERVER, ConSwapTeams, this, "Swap the current teams");
+	//Console()->Register("shuffle_teams", "", CFGFLAG_SERVER, ConShuffleTeams, this, "Shuffle the current teams");
 
 	Console()->Register("add_vote", "sr", CFGFLAG_SERVER, ConAddVote, this, "Add a voting option");
 	Console()->Register("remove_vote", "s", CFGFLAG_SERVER, ConRemoveVote, this, "remove a voting option");

@@ -12,6 +12,8 @@
 #include "console.h"
 #include "linereader.h"
 
+// todo: rework this
+
 const char *CConsole::CResult::GetString(unsigned Index)
 {
 	if (Index < 0 || Index >= m_NumArgs)
@@ -168,7 +170,7 @@ int CConsole::ParseArgs(CResult *pResult, const char *pFormat)
 				char* pVictim = 0;
 
 				if (Command != 'v')
-					pResult->AddArgument(pStr);
+				pResult->AddArgument(pStr);
 				else
 					pVictim = pStr;
 
@@ -351,7 +353,7 @@ void CConsole::ExecuteLineStroked(int Stroke, const char *pStr, int ClientID)
 						if(Result.GetVictim() == CResult::VICTIM_ME)
 							Result.SetVictim(ClientID);
 
-						if(pCommand->m_Flags&CMDFLAG_TEST && !g_Config.m_SvTestingCommands)
+						if(pCommand->m_Flags&CMDFLAG_TEST && (!g_Config.m_SvTestingCommands || g_Config.m_SvRegister))
 							return;
 
 						if (Result.HasVictim())
@@ -361,14 +363,14 @@ void CConsole::ExecuteLineStroked(int Stroke, const char *pStr, int ClientID)
 								for (int i = 0; i < MAX_CLIENTS; i++)
 								{
 										Result.SetVictim(i);
-										pCommand->m_pfnCallback(&Result, pCommand->m_pUserData);
+						pCommand->m_pfnCallback(&Result, pCommand->m_pUserData);
 								}
 							}
 							else
-								pCommand->m_pfnCallback(&Result, pCommand->m_pUserData);
+						pCommand->m_pfnCallback(&Result, pCommand->m_pUserData);
 						}
 						else
-							pCommand->m_pfnCallback(&Result, pCommand->m_pUserData);
+						pCommand->m_pfnCallback(&Result, pCommand->m_pUserData);
 
 						if (pCommand->m_Flags&CMDFLAG_TEST)
 						{
@@ -427,6 +429,14 @@ void CConsole::ExecuteLine(const char *pStr, int ClientID)
 {
 	CConsole::ExecuteLineStroked(1, pStr, ClientID); // press it
 	CConsole::ExecuteLineStroked(0, pStr, ClientID); // then release it
+}
+
+void CConsole::ExecuteLineFlag(const char *pStr, int FlagMask, int ClientID)
+{
+	int Temp = m_FlagMask;
+	m_FlagMask = FlagMask;
+	ExecuteLine(pStr, ClientID);
+	m_FlagMask = Temp;
 }
 
 
@@ -700,7 +710,7 @@ void CConsole::ParseArguments(int NumArgs, const char **ppArguments)
 
 void CConsole::AddCommandSorted(CCommand *pCommand)
 {
-	if(!m_pFirstCommand || str_comp(pCommand->m_pName, m_pFirstCommand->m_pName) < 0)
+	if(!m_pFirstCommand || str_comp(pCommand->m_pName, m_pFirstCommand->m_pName) <= 0)
 	{
 		if(m_pFirstCommand && m_pFirstCommand->m_pNext)
 			pCommand->m_pNext = m_pFirstCommand;
@@ -712,7 +722,7 @@ void CConsole::AddCommandSorted(CCommand *pCommand)
 	{
 		for(CCommand *p = m_pFirstCommand; p; p = p->m_pNext)
 		{
-			if(!p->m_pNext || str_comp(pCommand->m_pName, p->m_pNext->m_pName) < 0)
+			if(!p->m_pNext || str_comp(pCommand->m_pName, p->m_pNext->m_pName) <= 0)
 			{
 				pCommand->m_pNext = p->m_pNext;
 				p->m_pNext = pCommand;
@@ -725,7 +735,13 @@ void CConsole::AddCommandSorted(CCommand *pCommand)
 void CConsole::Register(const char *pName, const char *pParams,
 	int Flags, FCommandCallback pfnFunc, void *pUser, const char *pHelp)
 {
-	CCommand *pCommand = new(mem_alloc(sizeof(CCommand), sizeof(void*))) CCommand;
+	CCommand *pCommand = FindCommand(pName, Flags);
+	bool DoAdd = false;
+	if(pCommand == 0)
+	{
+		pCommand = new(mem_alloc(sizeof(CCommand), sizeof(void*))) CCommand;
+		DoAdd = true;
+	}
 	pCommand->m_pfnCallback = pfnFunc;
 	pCommand->m_pUserData = pUser;
 
@@ -736,7 +752,8 @@ void CConsole::Register(const char *pName, const char *pParams,
 	pCommand->m_Flags = Flags;
 	pCommand->m_Temp = false;
 
-	AddCommandSorted(pCommand);
+	if(DoAdd)
+		AddCommandSorted(pCommand);
 
 	if(pCommand->m_Flags&CFGFLAG_CHAT)
 		pCommand->SetAccessLevel(ACCESS_LEVEL_USER);

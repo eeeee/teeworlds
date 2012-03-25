@@ -63,6 +63,8 @@ class CGameContext : public IGameServer
 	static void ConSay(IConsole::IResult *pResult, void *pUserData);
 	static void ConSetTeam(IConsole::IResult *pResult, void *pUserData);
 	static void ConSetTeamAll(IConsole::IResult *pResult, void *pUserData);
+	//static void ConSwapTeams(IConsole::IResult *pResult, void *pUserData);
+	//static void ConShuffleTeams(IConsole::IResult *pResult, void *pUserData);
 	static void ConAddVote(IConsole::IResult *pResult, void *pUserData);
 	static void ConRemoveVote(IConsole::IResult *pResult, void *pUserData);
 	static void ConForceVote(IConsole::IResult *pResult, void *pUserData);
@@ -155,6 +157,9 @@ public:
 	void CheckPureTuning();
 	void SendTuningParams(int ClientID);
 
+	//
+	//void SwapTeams();
+
 	// engine events
 	virtual void OnInit();
 	virtual void OnConsoleInit();
@@ -230,6 +235,7 @@ private:
 	static void ConRules(IConsole::IResult *pResult, void *pUserData);
 	static void ConKill(IConsole::IResult *pResult, void *pUserData);
 	static void ConTogglePause(IConsole::IResult *pResult, void *pUserData);
+	static void ConToggleSpec(IConsole::IResult *pResult, void *pUserData);
 	static void ConForcePause(IConsole::IResult *pResult, void *pUserData);
 	static void ConTop5(IConsole::IResult *pResult, void *pUserData);
 	#if defined(CONF_SQL)
@@ -241,10 +247,17 @@ private:
 	static void ConBroadTime(IConsole::IResult *pResult, void *pUserData);
 	static void ConJoinTeam(IConsole::IResult *pResult, void *pUserData);
 	static void ConMe(IConsole::IResult *pResult, void *pUserData);
-	static void ConToggleEyeEmote(IConsole::IResult *pResult, void *pUserData);
+	static void ConSetEyeEmote(IConsole::IResult *pResult, void *pUserData);
 	static void ConToggleBroadcast(IConsole::IResult *pResult, void *pUserData);
 	static void ConEyeEmote(IConsole::IResult *pResult, void *pUserData);
 	static void ConShowOthers(IConsole::IResult *pResult, void *pUserData);
+	static void ConSayTime(IConsole::IResult *pResult, void *pUserData);
+	static void ConSayTimeAll(IConsole::IResult *pResult, void *pUserData);
+	static void ConTime(IConsole::IResult *pResult, void *pUserData);
+	static void ConSetTimerType(IConsole::IResult *pResult, void *pUserData);
+
+
+
 
 	static void ConMute(IConsole::IResult *pResult, void *pUserData);
 	static void ConMuteID(IConsole::IResult *pResult, void *pUserData);

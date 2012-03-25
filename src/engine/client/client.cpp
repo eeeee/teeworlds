@@ -7,6 +7,7 @@
 
 #include <base/math.h>
 #include <base/system.h>
+#include <base/tl/threading.h>
 
 #include <engine/client.h>
 #include <engine/config.h>
@@ -48,6 +49,10 @@
 	#include <windows.h>
 #endif
 
+#include "SDL.h"
+#ifdef main
+#undef main
+#endif
 
 void CGraph::Init(float Min, float Max)
 {
@@ -243,10 +248,11 @@ CClient::CClient() : m_DemoPlayer(&m_SnapshotDelta), m_DemoRecorder(&m_SnapshotD
 	m_pMap = 0;
 	m_pConsole = 0;
 
-	m_FrameTime = 0.0001f;
-	m_FrameTimeLow = 1.0f;
-	m_FrameTimeHigh = 0.0f;
-	m_Frames = 0;
+	m_RenderFrameTime = 0.0001f;
+	m_RenderFrameTimeLow = 1.0f;
+	m_RenderFrameTimeHigh = 0.0f;
+	m_RenderFrames = 0;
+	m_LastRenderTime = time_get();
 
 	m_GameTickSpeed = SERVER_TICK_SPEED;
 
@@ -546,6 +552,7 @@ void CClient::DisconnectWithReason(const char *pReason)
 
 	//
 	m_RconAuthed = 0;
+	m_UseTempRconCommands = 0;
 	m_pConsole->DeregisterTempAll();
 	m_NetClient.Disconnect(pReason);
 	SetState(IClient::STATE_OFFLINE);
@@ -680,13 +687,13 @@ void CClient::DebugRender()
 		udp = 8
 		total = 42
 	*/
-	FrameTimeAvg = FrameTimeAvg*0.9f + m_FrameTime*0.1f;
+	FrameTimeAvg = FrameTimeAvg*0.9f + m_RenderFrameTime*0.1f;
 	str_format(aBuffer, sizeof(aBuffer), "ticks: %8d %8d mem %dk %d gfxmem: %dk fps: %3d",
 		m_CurGameTick, m_PredTick,
 		mem_stats()->allocated/1024,
 		mem_stats()->total_allocations,
 		Graphics()->MemoryUsage()/1024,
-		(int)(1.0f/FrameTimeAvg));
+		(int)(1.0f/FrameTimeAvg + 0.5f));
 	Graphics()->QuadsText(2, 2, 16, 1,1,1,1, aBuffer);
 
 
@@ -967,7 +974,7 @@ void CClient::ProcessConnlessPacket(CNetChunk *pPacket)
 			Info.m_NumPlayers < 0 || Info.m_NumPlayers > Info.m_NumClients || Info.m_MaxPlayers < 0 || Info.m_MaxPlayers > Info.m_MaxClients)
 			return;
 
-		net_addr_str(&pPacket->m_Address, Info.m_aAddress, sizeof(Info.m_aAddress));
+		net_addr_str(&pPacket->m_Address, Info.m_aAddress, sizeof(Info.m_aAddress), true);
 
 		for(int i = 0; i < Info.m_NumClients; i++)
 		{
@@ -1156,9 +1163,12 @@ void CClient::ProcessServerPacket(CNetChunk *pPacket)
 			int Result = Unpacker.GetInt();
 			if(Unpacker.Error() == 0)
 				m_RconAuthed = Result;
+			int Old = m_UseTempRconCommands;
 			m_UseTempRconCommands = Unpacker.GetInt();
 			if(Unpacker.Error() != 0)
 				m_UseTempRconCommands = 0;
+			if(Old != 0 && m_UseTempRconCommands == 0)
+				m_pConsole->DeregisterTempAll();
 		}
 		else if(Msg == NETMSG_RCON_LINE)
 		{
@@ -1678,7 +1688,7 @@ void CClient::InitInterfaces()
 	// fetch interfaces
 	m_pEngine = Kernel()->RequestInterface<IEngine>();
 	m_pEditor = Kernel()->RequestInterface<IEditor>();
-	m_pGraphics = Kernel()->RequestInterface<IEngineGraphics>();
+	//m_pGraphics = Kernel()->RequestInterface<IEngineGraphics>();
 	m_pSound = Kernel()->RequestInterface<IEngineSound>();
 	m_pGameClient = Kernel()->RequestInterface<IGameClient>();
 	m_pInput = Kernel()->RequestInterface<IEngineInput>();
@@ -1693,15 +1703,40 @@ void CClient::InitInterfaces()
 
 void CClient::Run()
 {
-	int64 ReportTime = time_get();
-	int64 ReportInterval = time_freq()*1;
-
 	m_LocalStartTime = time_get();
 	m_SnapshotParts = 0;
 
+	// init SDL
+	{
+		if(SDL_Init(0) < 0)
+		{
+			dbg_msg("client", "unable to init SDL base: %s", SDL_GetError());
+			return;
+		}
+
+		atexit(SDL_Quit); // ignore_convention
+	}
+
 	// init graphics
-	if(m_pGraphics->Init() != 0)
-		return;
+	{
+		if(g_Config.m_GfxThreaded)
+			m_pGraphics = CreateEngineGraphicsThreaded();
+		else
+			m_pGraphics = CreateEngineGraphics();
+
+		bool RegisterFail = false;
+		RegisterFail = RegisterFail || !Kernel()->RegisterInterface(static_cast<IEngineGraphics*>(m_pGraphics)); // register graphics as both
+		RegisterFail = RegisterFail || !Kernel()->RegisterInterface(static_cast<IGraphics*>(m_pGraphics));
+
+		if(RegisterFail || m_pGraphics->Init() != 0)
+		{
+			dbg_msg("client", "couldn't init graphics");
+			return;
+		}
+	}
+
+	// init sound, allowed to fail
+	m_SoundInitFailed = Sound()->Init() != 0;
 
 	// open socket
 	{
@@ -1727,14 +1762,13 @@ void CClient::Run()
 	// init the editor
 	m_pEditor->Init();
 
-	// init sound, allowed to fail
-	m_SoundInitFailed = Sound()->Init() != 0;
 
 	// load data
 	if(!LoadData())
 		return;
 
 	GameClient()->OnInit();
+
 	char aBuf[256];
 	str_format(aBuf, sizeof(aBuf), "version %s", GameClient()->NetVersion());
 	m_pConsole->Print(IConsole::OUTPUT_LEVEL_STANDARD, "client", aBuf);
@@ -1759,9 +1793,6 @@ void CClient::Run()
 
 	while (1)
 	{
-		int64 FrameStartTime = time_get();
-		m_Frames++;
-
 		//
 		VersionUpdate();
 
@@ -1831,38 +1862,60 @@ void CClient::Run()
 		*/
 
 		// render
-		if(g_Config.m_ClEditor)
 		{
-			if(!m_EditorActive)
+			if(g_Config.m_ClEditor)
 			{
-				GameClient()->OnActivateEditor();
-				m_EditorActive = true;
+				if(!m_EditorActive)
+				{
+					GameClient()->OnActivateEditor();
+					m_EditorActive = true;
+				}
 			}
-
-			Update();
-			m_pEditor->UpdateAndRender();
-			DebugRender();
-			m_pGraphics->Swap();
-		}
-		else
-		{
-			if(m_EditorActive)
+			else if(m_EditorActive)
 				m_EditorActive = false;
 
 			Update();
-
-			if(g_Config.m_DbgStress)
+			
+			if(!g_Config.m_GfxAsyncRender || m_pGraphics->IsIdle())
 			{
-				if((m_Frames%10) == 0)
+				m_RenderFrames++;
+
+				// update frametime
+				int64 Now = time_get();
+				m_RenderFrameTime = (Now - m_LastRenderTime) / (float)time_freq();
+				if(m_RenderFrameTime < m_RenderFrameTimeLow)
+					m_RenderFrameTimeLow = m_RenderFrameTime;
+				if(m_RenderFrameTime > m_RenderFrameTimeHigh)
+					m_RenderFrameTimeHigh = m_RenderFrameTime;
+				m_FpsGraph.Add(1.0f/m_RenderFrameTime, 1,1,1);
+
+				m_LastRenderTime = Now;
+
+				if(g_Config.m_DbgStress)
 				{
-					Render();
+					if((m_RenderFrames%10) == 0)
+					{
+						if(!m_EditorActive)
+							Render();
+						else
+						{
+							m_pEditor->UpdateAndRender();
+							DebugRender();
+						}
+						m_pGraphics->Swap();
+					}
+				}
+				else
+				{
+					if(!m_EditorActive)
+						Render();
+					else
+					{
+						m_pEditor->UpdateAndRender();
+						DebugRender();
+					}
 					m_pGraphics->Swap();
 				}
-			}
-			else
-			{
-				Render();
-				m_pGraphics->Swap();
 			}
 		}
 
@@ -1884,32 +1937,25 @@ void CClient::Run()
 			g_Config.m_DbgHitch = 0;
 		}
 
+		/*
 		if(ReportTime < time_get())
 		{
 			if(0 && g_Config.m_Debug)
 			{
 				dbg_msg("client/report", "fps=%.02f (%.02f %.02f) netstate=%d",
 					m_Frames/(float)(ReportInterval/time_freq()),
-					1.0f/m_FrameTimeHigh,
-					1.0f/m_FrameTimeLow,
+					1.0f/m_RenderFrameTimeHigh,
+					1.0f/m_RenderFrameTimeLow,
 					m_NetClient.State());
 			}
-			m_FrameTimeLow = 1;
-			m_FrameTimeHigh = 0;
-			m_Frames = 0;
+			m_RenderFrameTimeLow = 1;
+			m_RenderFrameTimeHigh = 0;
+			m_RenderFrames = 0;
 			ReportTime += ReportInterval;
-		}
+		}*/
 
-		// update frametime
-		m_FrameTime = (time_get()-FrameStartTime)/(float)time_freq();
-		if(m_FrameTime < m_FrameTimeLow)
-			m_FrameTimeLow = m_FrameTime;
-		if(m_FrameTime > m_FrameTimeHigh)
-			m_FrameTimeHigh = m_FrameTime;
-
+		// update local time
 		m_LocalTime = (time_get()-m_LocalStartTime)/(float)time_freq();
-
-		m_FpsGraph.Add(1.0f/m_FrameTime, 1,1,1);
 	}
 
 	GameClient()->OnShutdown();
@@ -1917,6 +1963,11 @@ void CClient::Run()
 
 	m_pGraphics->Shutdown();
 	m_pSound->Shutdown();
+
+	// shutdown SDL
+	{
+		SDL_Quit();
+	}
 }
 
 
@@ -2221,7 +2272,6 @@ int main(int argc, const char **argv) // ignore_convention
 	IConsole *pConsole = CreateConsole(CFGFLAG_CLIENT);
 	IStorage *pStorage = CreateStorage("Teeworlds", argc, argv); // ignore_convention
 	IConfig *pConfig = CreateConfig();
-	IEngineGraphics *pEngineGraphics = CreateEngineGraphics();
 	IEngineSound *pEngineSound = CreateEngineSound();
 	IEngineInput *pEngineInput = CreateEngineInput();
 	IEngineTextRender *pEngineTextRender = CreateEngineTextRender();
@@ -2234,9 +2284,6 @@ int main(int argc, const char **argv) // ignore_convention
 		RegisterFail = RegisterFail || !pKernel->RegisterInterface(pEngine);
 		RegisterFail = RegisterFail || !pKernel->RegisterInterface(pConsole);
 		RegisterFail = RegisterFail || !pKernel->RegisterInterface(pConfig);
-
-		RegisterFail = RegisterFail || !pKernel->RegisterInterface(static_cast<IEngineGraphics*>(pEngineGraphics)); // register graphics as both
-		RegisterFail = RegisterFail || !pKernel->RegisterInterface(static_cast<IGraphics*>(pEngineGraphics));
 
 		RegisterFail = RegisterFail || !pKernel->RegisterInterface(static_cast<IEngineSound*>(pEngineSound)); // register as both
 		RegisterFail = RegisterFail || !pKernel->RegisterInterface(static_cast<ISound*>(pEngineSound));
