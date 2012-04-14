@@ -408,10 +408,19 @@ void CGameContext::SendVoteSet(int ClientID)
 void CGameContext::SendVoteStatus(int ClientID, int Total, int Yes, int No)
 {
 	CNetMsg_Sv_VoteStatus Msg = {0};
-	Msg.m_Total = Total;
-	Msg.m_Yes = Yes;
-	Msg.m_No = No;
-	Msg.m_Pass = Total - (Yes+No);
+	if (Total<=16)
+	{
+		Msg.m_Total = Total;
+		Msg.m_Yes = Yes;
+		Msg.m_No = No;
+		Msg.m_Pass = Total - (Yes+No);
+	} else {
+		double f = Total/16.;
+		Msg.m_Total = (int)(Total*f);
+		Msg.m_Yes = (int)(Yes*f);
+		Msg.m_No = (int)(No*f);
+		Msg.m_Pass = (int)((Total - (Yes+No))*f);
+	}
 
 	Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, ClientID);
 
