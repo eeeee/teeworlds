@@ -24,9 +24,6 @@ CGameControllerCTF::CGameControllerCTF(class CGameContext *pGameServer)
 
 bool CGameControllerCTF::OnEntity(int Index, vec2 Pos, int a, int b, int c)
 {
-	if(IGameController::OnEntity(Index, Pos, 0, 0, 0))
-		return true;
-
 	int Team = -1;
 	if(Index == ENTITY_FLAGSTAND_RED) Team = TEAM_RED;
 	if(Index == ENTITY_FLAGSTAND_BLUE) Team = TEAM_BLUE;
