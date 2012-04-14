@@ -1791,6 +1791,12 @@ void CCharacter::BlockKill(bool dead, bool chatblock)
 			m_CKPunish = m_Killer;
 			m_CKPunishTick = Server()->Tick();
 			m_LastBroadcast = 0;
+			
+			for(int i=1;i<NUM_WEAPONS-1;i++)
+				m_aWeapons[i].m_Got = false;
+			if (GameServer()->GetPlayerChar(m_Killer))
+				for(int i=1;i<NUM_WEAPONS-1;i++)
+					GameServer()->GetPlayerChar(m_Killer)->m_aWeapons[i].m_Got = false;
 		}
 	}
 	else
