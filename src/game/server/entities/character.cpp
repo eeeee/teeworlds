@@ -1025,10 +1025,14 @@ void CCharacter::HandleBroadcast()
 	if(Server()->Tick() - m_RefreshTime >= Server()->TickSpeed())
 	{
 		char aTmp[128];
-		if( (g_Config.m_SvBroadcast[0] != 0 || m_CKPunishTick != 0) && (Server()->Tick() > (m_LastBroadcast + (Server()->TickSpeed() * 9))))
+		if( (g_Config.m_SvBroadcast[0] != 0 || m_CKPunishTick != 0 || (GameServer()->awesomeTime > Server()->Tick() && GameServer()->m_apPlayers[GameServer()->awesomeId])) && (Server()->Tick() > (m_LastBroadcast + (Server()->TickSpeed() * 9))))
 		{
 			if (m_CKPunishTick == 0)
+			{
 				str_format(aTmp, sizeof(aTmp), "%s", g_Config.m_SvBroadcast);
+				if (GameServer()->awesomeTime > Server()->Tick() && GameServer()->m_apPlayers[GameServer()->awesomeId])
+					str_format(aTmp, sizeof(aTmp), "%s is awesome!", Server()->ClientName(GameServer()->awesomeId));
+			}
 			else
 			{
 				CPlayer* killer = GameServer()->GetPlayerByUID(m_CKPunish);
@@ -1788,6 +1792,10 @@ void CCharacter::BlockKill(bool dead, bool chatblock)
 			m_CKPunishTick = Server()->Tick();
 			m_LastBroadcast = 0;
 		}
+	}
+	else
+	{
+		((CGameControllerDDRace*)GameServer()->m_pController)->Blocked(this, killer);
 	}
 
 	if (dead || g_Config.m_SvShowKillers)

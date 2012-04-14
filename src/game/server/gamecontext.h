@@ -139,6 +139,9 @@ public:
 	void CreateSound(vec2 Pos, int Sound, int64_t Mask=-1);
 	void CreateSoundGlobal(int Sound, int Target=-1);
 
+	int awesomeId;
+	int awesomeTime;
+	void Captured(int cid);
 
 	enum
 	{

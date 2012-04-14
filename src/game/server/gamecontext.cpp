@@ -40,6 +40,7 @@ enum
 
 void CGameContext::Construct(int Resetting)
 {
+	awesomeTime = 0;
 	m_Resetting = 0;
 	m_pServer = 0;
 
@@ -2283,4 +2284,11 @@ void CGameContext::List(int ClientID, const char* filter)
 		SendChatTarget(ClientID, buf);
 	str_format(buf, sizeof(buf), "%d players online", total);
 	SendChatTarget(ClientID, buf);
+}
+
+void CGameContext::Captured(int cid)
+{
+	awesomeTime = Server()->Tick()+Server()->TickSpeed()*60;
+	awesomeId = cid;
+	dbg_msg("","%d is awesome",cid);
 }
