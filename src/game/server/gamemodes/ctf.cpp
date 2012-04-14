@@ -128,7 +128,11 @@ void CGameControllerCTF::Snap(int SnappingClient)
 		if(m_apFlags[TEAM_RED]->m_AtStand)
 			pGameDataObj->m_FlagCarrierRed = FLAG_ATSTAND;
 		else if(m_apFlags[TEAM_RED]->m_pCarryingCharacter && m_apFlags[TEAM_RED]->m_pCarryingCharacter->GetPlayer())
+		{
 			pGameDataObj->m_FlagCarrierRed = m_apFlags[TEAM_RED]->m_pCarryingCharacter->GetPlayer()->GetCID();
+			if (!Server()->Translate(pGameDataObj->m_FlagCarrierRed, SnappingClient))
+				pGameDataObj->m_FlagCarrierRed = FLAG_MISSING;
+		}
 		else
 			pGameDataObj->m_FlagCarrierRed = FLAG_TAKEN;
 	}
@@ -139,7 +143,11 @@ void CGameControllerCTF::Snap(int SnappingClient)
 		if(m_apFlags[TEAM_BLUE]->m_AtStand)
 			pGameDataObj->m_FlagCarrierBlue = FLAG_ATSTAND;
 		else if(m_apFlags[TEAM_BLUE]->m_pCarryingCharacter && m_apFlags[TEAM_BLUE]->m_pCarryingCharacter->GetPlayer())
+		{
 			pGameDataObj->m_FlagCarrierBlue = m_apFlags[TEAM_BLUE]->m_pCarryingCharacter->GetPlayer()->GetCID();
+			if (!Server()->Translate(pGameDataObj->m_FlagCarrierBlue, SnappingClient))
+				pGameDataObj->m_FlagCarrierBlue = FLAG_MISSING;
+		}
 		else
 			pGameDataObj->m_FlagCarrierBlue = FLAG_TAKEN;
 	}
