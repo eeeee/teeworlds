@@ -128,39 +128,53 @@ void CPlayer::Tick()
 		}
 	}
 
-	if(!m_pCharacter && m_DieTick+Server()->TickSpeed()*3 <= Server()->Tick())
-		m_Spawning = true;
-
-	if(m_pCharacter)
+	if(!GameServer()->m_World.m_Paused)
 	{
-		if(m_pCharacter->IsAlive())
+		if(!m_pCharacter && m_Team == TEAM_SPECTATORS && m_SpectatorID == SPEC_FREEVIEW)
+			m_ViewPos -= vec2(clamp(m_ViewPos.x-m_LatestActivity.m_TargetX, -500.0f, 500.0f), clamp(m_ViewPos.y-m_LatestActivity.m_TargetY, -400.0f, 400.0f));
+
+		if(!m_pCharacter && m_DieTick+Server()->TickSpeed()*3 <= Server()->Tick())
+			m_Spawning = true;
+
+		if(m_pCharacter)
 		{
-			if(m_Paused >= PAUSED_FORCE)
+			if(m_pCharacter->IsAlive())
 			{
-				if(m_ForcePauseTime == 0)
-				m_Paused = PAUSED_NONE;
-				ProcessPause();
-			}
-			else if(m_Paused == PAUSED_PAUSED && m_NextPauseTick < Server()->Tick())
-			{
-				if((!m_pCharacter->GetWeaponGot(WEAPON_NINJA) || m_pCharacter->m_FreezeTime) && m_pCharacter->IsGrounded() && m_pCharacter->m_Pos == m_pCharacter->m_PrevPos)
+				if(m_Paused >= PAUSED_FORCE)
+				{
+					if(m_ForcePauseTime == 0)
+					m_Paused = PAUSED_NONE;
 					ProcessPause();
+				}
+				else if(m_Paused == PAUSED_PAUSED && m_NextPauseTick < Server()->Tick())
+				{
+					if((!m_pCharacter->GetWeaponGot(WEAPON_NINJA) || m_pCharacter->m_FreezeTime) && m_pCharacter->IsGrounded() && m_pCharacter->m_Pos == m_pCharacter->m_PrevPos)
+						ProcessPause();
+				}
+				else if(m_NextPauseTick < Server()->Tick())
+				{
+					ProcessPause();
+				}
+				if(!m_Paused)
+					m_ViewPos = m_pCharacter->m_Pos;
 			}
-			else if(m_NextPauseTick < Server()->Tick())
+			else if(!m_pCharacter->IsPaused())
 			{
-				ProcessPause();
+				delete m_pCharacter;
+				m_pCharacter = 0;
 			}
-			if(!m_Paused)
-				m_ViewPos = m_pCharacter->m_Pos;
 		}
-		else if(!m_pCharacter->IsPaused())
-		{
-			delete m_pCharacter;
-			m_pCharacter = 0;
-		}
+		else if(m_Spawning && m_RespawnTick <= Server()->Tick())
+			TryRespawn();
 	}
-	else if(m_Spawning && m_RespawnTick <= Server()->Tick())
-		TryRespawn();
+	else
+	{
+		++m_RespawnTick;
+		++m_DieTick;
+		++m_ScoreStartTick;
+		++m_LastActionTick;
+		++m_TeamChangeTick;
+ 	}
 }
 
 void CPlayer::PostTick()
@@ -448,34 +462,37 @@ bool CPlayer::AfkTimer(int NewTargetX, int NewTargetY)
 	}
 	else
 	{
-		// not playing, check how long
-		if(m_Sent1stAfkWarning == 0 && m_LastPlaytime < time_get()-time_freq()*(int)(g_Config.m_SvMaxAfkTime*0.5))
+		if(!m_Paused)
 		{
-			sprintf(
-				m_pAfkMsg,
-				"You have been afk for %d seconds now. Please note that you get kicked after not playing for %d seconds.",
-				(int)(g_Config.m_SvMaxAfkTime*0.5),
-				g_Config.m_SvMaxAfkTime
-			);
-			m_pGameServer->SendChatTarget(m_ClientID, m_pAfkMsg);
-			m_Sent1stAfkWarning = 1;
-		}
-		else if(m_Sent2ndAfkWarning == 0 && m_LastPlaytime < time_get()-time_freq()*(int)(g_Config.m_SvMaxAfkTime*0.9))
-		{
-			sprintf(
-				m_pAfkMsg,
-				"You have been afk for %d seconds now. Please note that you get kicked after not playing for %d seconds.",
-				(int)(g_Config.m_SvMaxAfkTime*0.9),
-				g_Config.m_SvMaxAfkTime
-			);
-			m_pGameServer->SendChatTarget(m_ClientID, m_pAfkMsg);
-			m_Sent2ndAfkWarning = 1;
-		}
-		else if(m_LastPlaytime < time_get()-time_freq()*g_Config.m_SvMaxAfkTime)
-		{
-			CServer* serv =	(CServer*)m_pGameServer->Server();
-			serv->Kick(m_ClientID,"Away from keyboard");
-			return true;
+			// not playing, check how long
+			if(m_Sent1stAfkWarning == 0 && m_LastPlaytime < time_get()-time_freq()*(int)(g_Config.m_SvMaxAfkTime*0.5))
+			{
+				sprintf(
+					m_pAfkMsg,
+					"You have been afk for %d seconds now. Please note that you get kicked after not playing for %d seconds.",
+					(int)(g_Config.m_SvMaxAfkTime*0.5),
+					g_Config.m_SvMaxAfkTime
+				);
+				m_pGameServer->SendChatTarget(m_ClientID, m_pAfkMsg);
+				m_Sent1stAfkWarning = 1;
+			}
+			else if(m_Sent2ndAfkWarning == 0 && m_LastPlaytime < time_get()-time_freq()*(int)(g_Config.m_SvMaxAfkTime*0.9))
+			{
+				sprintf(
+					m_pAfkMsg,
+					"You have been afk for %d seconds now. Please note that you get kicked after not playing for %d seconds.",
+					(int)(g_Config.m_SvMaxAfkTime*0.9),
+					g_Config.m_SvMaxAfkTime
+				);
+				m_pGameServer->SendChatTarget(m_ClientID, m_pAfkMsg);
+				m_Sent2ndAfkWarning = 1;
+			}
+			else if(m_LastPlaytime < time_get()-time_freq()*g_Config.m_SvMaxAfkTime)
+			{
+				CServer* serv =	(CServer*)m_pGameServer->Server();
+				serv->Kick(m_ClientID,"Away from keyboard");
+				return true;
+			}
 		}
 	}
 	return false;

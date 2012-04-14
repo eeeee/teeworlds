@@ -150,7 +150,10 @@ function build(settings)
 		settings.cc.flags:Add("/EHsc")
 	else
 		settings.cc.flags:Add("-Wall")
-		if platform == "macosx" then
+		if family == "windows" then
+			-- disable visibility attribute support for gcc on windows
+			settings.cc.defines:Add("NO_VIZ")
+		elseif platform == "macosx" then
 			settings.cc.flags:Add("-mmacosx-version-min=10.5")
 			settings.link.flags:Add("-mmacosx-version-min=10.5")
 		elseif config.stackprotector.value == 1 then
