@@ -45,6 +45,13 @@ void CGameContext::ConPunish(IConsole::IResult *pResult, void *pUserData)
 		vec2 tmp = pChr->Core()->m_Pos;
 		pChr->Core()->m_Pos = pFgt->Core()->m_Pos;
 		pFgt->Core()->m_Pos = tmp;
+
+		pChr->SetWeaponGot(WEAPON_SHOTGUN, false);
+		pChr->SetWeaponGot(WEAPON_GRENADE, false);
+		pChr->SetWeaponGot(WEAPON_RIFLE, false);
+		pFgt->SetWeaponGot(WEAPON_SHOTGUN, false);
+		pFgt->SetWeaponGot(WEAPON_GRENADE, false);
+		pFgt->SetWeaponGot(WEAPON_RIFLE, false);
 	}
 
 	char aBuf[200];
