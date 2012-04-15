@@ -1757,8 +1757,8 @@ void CCharacter::BlockHelp()
 				Msg.m_Weapon = WEAPON_RIFLE;
 				Msg.m_ModeSpecial = 0;
 				Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, -1);
-				((CGameControllerDDRace*)GameServer()->m_pController)->Blocked(this, helper);
 			}
+			((CGameControllerDDRace*)GameServer()->m_pController)->Blocked(this, helper);
 		}
 	}
 }
