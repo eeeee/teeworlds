@@ -1744,7 +1744,7 @@ void CCharacter::NewState(int state)
 
 void CCharacter::BlockHelp()
 {
-	if (!Ago(m_HelperTick, 4000) && m_Helper != -1)
+	if (!Ago(m_HelperTick, 14000) && m_Helper != -1)
 	{
 		CPlayer* helper = GameServer()->GetPlayerByUID(m_Helper);
 		if (helper)
