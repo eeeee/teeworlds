@@ -1497,7 +1497,7 @@ void CCharacter::DDRaceTick()
 	if(m_FreezeTime > 0 || m_FreezeTime == -1)
 	{
 		m_Frozen = true;
-		if (m_FreezeTime % Server()->TickSpeed() == 0 || m_FreezeTime == -1)
+		if (m_FreezeTime % Server()->TickSpeed() == 0/* || m_FreezeTime == -1*/)
 		{
 			GameServer()->CreateDamageInd(m_Pos, 0, m_FreezeTime / Server()->TickSpeed(), Teams()->TeamMask(Team(), -1, m_pPlayer->GetCID()));
 		}
