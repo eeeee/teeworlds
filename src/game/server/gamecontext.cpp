@@ -276,6 +276,14 @@ void CGameContext::SendChat(int ChatterClientID, int Team, const char *pText, in
 			SendChatTarget(SpamProtectionClientID, pText);
 			return;
 		}
+		if (m_apPlayers[SpamProtectionClientID])
+		{
+			if (str_length(pText)>25)
+				m_apPlayers[SpamProtectionClientID]->m_ChatScore += g_Config.m_SvChatPenalty;
+			if (str_quickhash(pText) == m_apPlayers[SpamProtectionClientID]->m_ChatLastHash)
+				m_apPlayers[SpamProtectionClientID]->m_ChatScore += g_Config.m_SvChatPenalty;
+			m_apPlayers[SpamProtectionClientID]->m_ChatLastHash = str_quickhash(pText);
+		}
 	}
 
 	char aBuf[256], aText[256];
@@ -828,7 +836,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 		}
 		if(pMsg->m_pMessage[0]=='/')
 		{
-			if(ProcessSpamProtection(ClientID))
+			if(ProcessSpamProtectionEx(ClientID))
 			{
 				SendChatTarget(ClientID, "Muted text:");
 				SendChatTarget(ClientID, pMsg->m_pMessage);
@@ -2227,6 +2235,39 @@ int CGameContext::ProcessSpamProtection(int ClientID)
 	}
 
 	if ((m_apPlayers[ClientID]->m_ChatScore += g_Config.m_SvChatPenalty) > g_Config.m_SvChatThreshold)
+	{
+		Mute(0, &Addr, g_Config.m_SvSpamMuteDuration, Server()->ClientName(ClientID));
+		m_apPlayers[ClientID]->m_ChatScore = 0;
+		return 1;
+	}
+
+	return 0;
+}
+
+int CGameContext::ProcessSpamProtectionEx(int ClientID)
+{
+	if(!m_apPlayers[ClientID])
+		return 0;
+
+	NETADDR Addr;
+	Server()->GetClientAddr(ClientID, &Addr);
+	int Muted = 0;
+
+	for(int i = 0; i < m_NumMutes && !Muted; i++)
+	{
+		if(!net_addr_comp(&Addr, &m_aMutes[i].m_Addr))
+			Muted = (m_aMutes[i].m_Expire - Server()->Tick()) / Server()->TickSpeed();
+	}
+
+	if (Muted > 0)
+	{
+		char aBuf[128];
+		str_format(aBuf, sizeof aBuf, "You are not permitted to talk for the next %d seconds.", Muted);
+		SendChatTarget(ClientID, aBuf);
+		return 1;
+	}
+
+	if ((m_apPlayers[ClientID]->m_ChatScore += g_Config.m_SvChatPenalty/5) > g_Config.m_SvChatThreshold)
 	{
 		Mute(0, &Addr, g_Config.m_SvSpamMuteDuration, Server()->ClientName(ClientID));
 		m_apPlayers[ClientID]->m_ChatScore = 0;

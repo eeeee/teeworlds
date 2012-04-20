@@ -138,6 +138,7 @@ public:
 	bool m_ShowOthers;
 
 	int m_ChatScore;
+	unsigned m_ChatLastHash;
 
 	bool AfkTimer(int new_target_x, int new_target_y); //returns true if kicked
 	int64 m_LastPlaytime;

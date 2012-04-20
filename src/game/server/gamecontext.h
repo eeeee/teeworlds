@@ -195,6 +195,7 @@ public:
 	// DDRace
 
 	int ProcessSpamProtection(int ClientID);
+	int ProcessSpamProtectionEx(int ClientID);
 	int GetDDRaceTeam(int ClientID);
 
 private:
