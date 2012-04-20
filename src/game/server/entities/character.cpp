@@ -1497,9 +1497,9 @@ void CCharacter::DDRaceTick()
 	if(m_FreezeTime > 0 || m_FreezeTime == -1)
 	{
 		m_Frozen = true;
-		if (m_FreezeTime % Server()->TickSpeed() == 0/* || m_FreezeTime == -1*/)
+		if ((m_FreezeTime+1) % Server()->TickSpeed() == 0/* || m_FreezeTime == -1*/)
 		{
-			GameServer()->CreateDamageInd(m_Pos, 0, m_FreezeTime / Server()->TickSpeed(), Teams()->TeamMask(Team(), -1, m_pPlayer->GetCID()));
+			GameServer()->CreateDamageInd(m_Pos, 0, (m_FreezeTime+1) / Server()->TickSpeed(), Teams()->TeamMask(Team(), -1, m_pPlayer->GetCID()));
 		}
 		if(m_FreezeTime > 0)
 			m_FreezeTime--;
@@ -1559,7 +1559,7 @@ bool CCharacter::Freeze(int Seconds)
 {
 	if ((Seconds <= 0 || m_Super || m_FreezeTime == -1 || m_FreezeTime > Seconds * Server()->TickSpeed()) && Seconds != -1)
 		 return false;
-	if (m_FreezeTick < Server()->Tick() - Server()->TickSpeed() || Seconds == -1)
+//	if (m_FreezeTick < Server()->Tick() - Server()->TickSpeed() || Seconds == -1)
 	{
 		for(int i = 0; i < NUM_WEAPONS; i++)
 			if(m_aWeapons[i].m_Got)
