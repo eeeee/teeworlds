@@ -1897,45 +1897,6 @@ char *CServer::GetAnnouncementLine(char const *pFileName)
 	return 0;
 }
 
-void CServer::ConAddBanmaster(IConsole::IResult *pResult, void *pUser)
-{
-	CServer *pServer = (CServer *)pUser;
-	
-	int Result = pServer->m_NetServer.BanmasterAdd(pResult->GetString(0));
-	
-	if(Result == 0)
-		pServer->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server/banmaster", "succesfully added banmaster");
-	else if (Result == 1)
-		pServer->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server/banmaster", "invalid address for banmaster / net lookup failed");
-	else
-		pServer->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server/banmaster", "too many banmasters");
-}
-
-void CServer::ConBanmasters(IConsole::IResult *pResult, void *pUser)
-{
-	CServer *pServer = (CServer *)pUser;
-	int NumBanmasters = pServer->m_NetServer.BanmasterNum();
-	
-	char aBuf[128];
-	char aIpString[64];
-	
-	for(int i = 0; i < NumBanmasters; i++)
-	{
-		NETADDR *pBanmaster = pServer->m_NetServer.BanmasterGet(i);
-		net_addr_str(pBanmaster, aIpString, sizeof(aIpString), false);
-		str_format(aBuf, sizeof(aBuf), "%d: %s", i, aIpString);
-		pServer->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server/banmaster", aBuf);
-	}
-}
-
-void CServer::ConClearBanmasters(IConsole::IResult *pResult, void *pUser)
-{
-	CServer *pServer = (CServer *)pUser;
-	
-	pServer->m_NetServer.BanmastersClear();
-	pServer->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server/banmaster", "cleared banmaster list");
-}
-
 int* CServer::GetIdMap(int ClientID)
 {
 	return (int*)(IdMap + VANILLA_MAX_CLIENTS * ClientID);

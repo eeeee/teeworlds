@@ -264,10 +264,6 @@ public:
 
 	virtual int* GetIdMap(int ClientID);
 	virtual void SetCustClt(int ClientID);
-
-	static void ConAddBanmaster(IConsole::IResult *pResult, void *pUser);
-	static void ConBanmasters(IConsole::IResult *pResult, void *pUser);
-	static void ConClearBanmasters(IConsole::IResult *pResult, void *pUser);
 };
 
 #endif

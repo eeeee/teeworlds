@@ -213,9 +213,6 @@ MACRO_CONFIG_INT(SvChatPenalty, sv_chat_penalty, 250, 50, 1000, CFGFLAG_SERVER, 
 MACRO_CONFIG_INT(SvChatThreshold, sv_chat_threshold, 1000, 50, 10000 , CFGFLAG_SERVER, "if chats core exceeds this, the player will be muted for sv_spam_mute_duration seconds")
 MACRO_CONFIG_INT(SvSpamMuteDuration, sv_spam_mute_duration, 60, 0, 3600 , CFGFLAG_SERVER, "how many seconds to mute, if player triggers mute on spam. 0 = off")
 
-// banmaster
-MACRO_CONFIG_INT(SvGlobalBantime, sv_global_ban_time, 60, 0, 1440, CFGFLAG_SERVER, "The time a client gets banned if the ban server reports it. 0 to disable")
-
 MACRO_CONFIG_INT(SvEvents, sv_events, 1, 0, 1, CFGFLAG_SERVER, "Enable triggering of server events, like the happy eyeemotes on some holidays.")
 
 #endif
