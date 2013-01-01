@@ -32,9 +32,6 @@
 #include <vector>
 #include <engine/shared/linereader.h>
 
-// banmaster
-#include <banmaster/banmaster.h>
-
 #include "register.h"
 #include "server.h"
 
@@ -44,15 +41,13 @@
 	#include <windows.h>
 #endif
 
-static const char SERVER_BANMASTERFILE[] = "banmasters.cfg";
-
 static const char *StrUTF8Ltrim(const char *pStr)
 {
 	while(*pStr)
 	{
 		const char *pStrOld = pStr;
 		int Code = str_utf8_decode(&pStr);
-
+		
 		// check if unicode is not empty
 		if(Code > 0x20 && Code != 0xA0 && Code != 0x034F && (Code < 0x2000 || Code > 0x200F) && (Code < 0x2028 || Code > 0x202F) &&
 			(Code < 0x205F || Code > 0x2064) && (Code < 0x206A || Code > 0x206F) && (Code < 0xFE00 || Code > 0xFE0F) &&
@@ -758,8 +753,15 @@ int CServer::DelClientCallback(int ClientID, const char *pReason, void *pUser)
 	return 0;
 }
 
+static int lastsent[MAX_CLIENTS];
+static int lastask[MAX_CLIENTS];
+static int lastasktick[MAX_CLIENTS];
+
 void CServer::SendMap(int ClientID)
 {
+	lastsent[ClientID] = 0;
+	lastask[ClientID] = 0;
+	lastasktick[ClientID] = Tick();
 	CMsgPacker Msg(NETMSG_MAP_CHANGE);
 	Msg.AddString(GetMapName(), 0);
 	Msg.AddInt(m_CurrentMapCrc);
@@ -886,6 +888,13 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 			int Offset = Chunk * ChunkSize;
 			int Last = 0;
 
+			lastask[ClientID] = Chunk;
+			lastasktick[ClientID] = Tick();
+			if (Chunk == 0)
+			{
+				lastsent[ClientID] = 0;
+			}
+
 			// drop faulty map data requests
 			if(Chunk < 0 || Offset > m_CurrentMapSize)
 				return;
@@ -898,13 +907,16 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 				Last = 1;
 			}
 
+			if (lastsent[ClientID] < Chunk+g_Config.m_SvMapWindow && g_Config.m_SvFastDownload)
+				return;
+
 			CMsgPacker Msg(NETMSG_MAP_DATA);
 			Msg.AddInt(Last);
 			Msg.AddInt(m_CurrentMapCrc);
 			Msg.AddInt(Chunk);
 			Msg.AddInt(ChunkSize);
 			Msg.AddRaw(&m_pCurrentMapData[Offset], ChunkSize);
-			SendMsgEx(&Msg, MSGFLAG_VITAL|MSGFLAG_FLUSH, ClientID, true);
+			SendMsgEx(&Msg, MSGFLAG_FLUSH, ClientID, true);
 
 			if(g_Config.m_Debug)
 			{
@@ -1231,42 +1243,56 @@ void CServer::PumpNetwork()
 				{
 					SendServerInfo(&Packet.m_Address, ((unsigned char *)Packet.m_pData)[sizeof(SERVERBROWSE_GETINFO)]);
 				}
-				/*if(Packet.m_DataSize >= sizeof(BANMASTER_IPOK) &&
-					mem_comp(Packet.m_pData, BANMASTER_IPOK, sizeof(BANMASTER_IPOK)) == 0 &&
-					m_NetServer.BanmasterCheck(&Packet.m_Address) != -1)
-				{
-				}*/
-
-				if((unsigned)Packet.m_DataSize >= sizeof(BANMASTER_IPBAN) &&
-					mem_comp(Packet.m_pData, BANMASTER_IPBAN, sizeof(BANMASTER_IPBAN)) == 0)
-				{
-					if(!g_Config.m_SvGlobalBantime)
-						return;
-
-					if(m_NetServer.BanmasterCheck(&Packet.m_Address) == -1)
-						return;
-
-					CUnpacker Up;
-					char aIp[NETADDR_MAXSTRSIZE];
-					char aReason[256];
-					NETADDR Addr;
-					Up.Reset((unsigned char*)Packet.m_pData + sizeof(BANMASTER_IPBAN), Packet.m_DataSize - sizeof(BANMASTER_IPBAN));
-					str_copy(aIp, Up.GetString(CUnpacker::SANITIZE_CC|CUnpacker::SKIP_START_WHITESPACES), sizeof(aIp));
-					str_copy(aReason, Up.GetString(CUnpacker::SANITIZE_CC|CUnpacker::SKIP_START_WHITESPACES), sizeof(aReason));
-					if(net_addr_from_str(&Addr, aIp))
-					{
-						dbg_msg("globalbans", "dropped weird message from banmaster");
-						return;
-					}
-
-					// TODO(heinrich5991): fix banmaster global ban addition
-					//m_NetServer.BanAdd(Addr, g_Config.m_SvGlobalBantime * 60, aReason);
-					dbg_msg("globalbans", "added ban, ip=%s, reason='%s'", aIp, aReason);
-				}
 			}
 		}
 		else
 			ProcessClientPacket(&Packet);
+	}
+	if(g_Config.m_SvFastDownload)
+	{
+		for (int i=0;i<MAX_CLIENTS;i++)
+		{
+			if (m_aClients[i].m_State != CClient::STATE_CONNECTING)
+				continue;
+			if (lastasktick[i] < Tick()-TickSpeed())
+			{
+				lastsent[i] = lastask[i];
+				lastasktick[i] = Tick();
+			}
+			if (lastask[i]<lastsent[i]-g_Config.m_SvMapWindow)
+				continue;
+	
+			int Chunk = lastsent[i]++;
+			int ChunkSize = 1024-128;
+			int Offset = Chunk * ChunkSize;
+			int Last = 0;
+	
+			// drop faulty map data requests
+			if(Chunk < 0 || Offset > m_CurrentMapSize)
+				continue;
+			if(Offset+ChunkSize >= m_CurrentMapSize)
+			{
+				ChunkSize = m_CurrentMapSize-Offset;
+				if(ChunkSize < 0)
+					ChunkSize = 0;
+				Last = 1;
+			}
+	
+			CMsgPacker Msg(NETMSG_MAP_DATA);
+			Msg.AddInt(Last);
+			Msg.AddInt(m_CurrentMapCrc);
+			Msg.AddInt(Chunk);
+			Msg.AddInt(ChunkSize);
+			Msg.AddRaw(&m_pCurrentMapData[Offset], ChunkSize);
+			SendMsgEx(&Msg, MSGFLAG_FLUSH, i, true);
+	
+			if(g_Config.m_Debug)
+			{
+				char aBuf[256];
+				str_format(aBuf, sizeof(aBuf), "sending chunk %d with size %d", Chunk, ChunkSize);
+				Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "server", aBuf);
+			}
+		}
 	}
 
 	m_ServerBan.Update();
@@ -1344,10 +1370,6 @@ void CServer::InitRegister(CNetServer *pNetServer, IEngineMasterServer *pMasterS
 
 int CServer::Run()
 {
-	m_pGameServer = Kernel()->RequestInterface<IGameServer>();
-	m_pMap = Kernel()->RequestInterface<IEngineMap>();
-	m_pStorage = Kernel()->RequestInterface<IStorage>();
-
 	//
 	m_PrintCBIndex = Console()->RegisterPrintCallback(g_Config.m_ConsoleOutputLevel, SendRconLineAuthed, this);
 
@@ -1380,10 +1402,7 @@ int CServer::Run()
 
 	m_NetServer.SetCallbacks(NewClientCallback, DelClientCallback, this);
 
-	m_ServerBan.Init(Console(), Storage(), this);
 	m_Econ.Init(Console(), &m_ServerBan);
-
-	Console()->ExecuteFile(SERVER_BANMASTERFILE);
 
 	char aBuf[256];
 	str_format(aBuf, sizeof(aBuf), "server name is '%s'", g_Config.m_SvName);
@@ -1699,7 +1718,11 @@ void CServer::ConchainConsoleOutputLevelUpdate(IConsole::IResult *pResult, void 
 void CServer::RegisterCommands()
 {
 	m_pConsole = Kernel()->RequestInterface<IConsole>();
+	m_pGameServer = Kernel()->RequestInterface<IGameServer>();
+	m_pMap = Kernel()->RequestInterface<IEngineMap>();
+	m_pStorage = Kernel()->RequestInterface<IStorage>();
 
+	// register console commands
 	Console()->Register("kick", "i?r", CFGFLAG_SERVER, ConKick, this, "Kick player with specified id for any reason");
 	Console()->Register("status", "", CFGFLAG_SERVER, ConStatus, this, "List players");
 	Console()->Register("shutdown", "", CFGFLAG_SERVER, ConShutdown, this, "Shut down");
@@ -1710,17 +1733,16 @@ void CServer::RegisterCommands()
 
 	Console()->Register("reload", "", CFGFLAG_SERVER, ConMapReload, this, "Reload the map");
 
-	// banmaster
-	Console()->Register("add_banmaster", "s", CFGFLAG_SERVER, ConAddBanmaster, this, "");
-	Console()->Register("banmasters", "", CFGFLAG_SERVER, ConBanmasters, this, "");
-	Console()->Register("clear_banmasters",	"", CFGFLAG_SERVER, ConClearBanmasters, this, "");
-
 	Console()->Chain("sv_name", ConchainSpecialInfoupdate, this);
 	Console()->Chain("password", ConchainSpecialInfoupdate, this);
 
 	Console()->Chain("sv_max_clients_per_ip", ConchainMaxclientsperipUpdate, this);
 	Console()->Chain("mod_command", ConchainModCommandUpdate, this);
 	Console()->Chain("console_output_level", ConchainConsoleOutputLevelUpdate, this);
+
+	// register console commands in sub parts
+	m_ServerBan.Init(Console(), Storage(), this);
+	m_pGameServer->OnConsoleInit();
 }
 
 
@@ -1801,7 +1823,6 @@ int main(int argc, const char **argv) // ignore_convention
 
 	// register all console commands
 	pServer->RegisterCommands();
-	pGameServer->OnConsoleInit();
 
 	// execute autoexec file
 	pConsole->ExecuteFile("autoexec.cfg");
