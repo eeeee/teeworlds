@@ -5,6 +5,7 @@
 
 #include <base/system.h>
 
+#include <engine/shared/maxclients.h>
 /*
 	Connection diagram - How the initilization works.
 
@@ -78,7 +79,7 @@ enum
 	SERVER_TICK_SPEED=50,
 	SERVER_FLAG_PASSWORD = 0x1,
 
-	MAX_CLIENTS=64,
+	MAX_CLIENTS=MASTERIMPERATOR_MAX_CLIENTS,
 	VANILLA_MAX_CLIENTS=16,
 
 	MAX_INPUT_SIZE=128,

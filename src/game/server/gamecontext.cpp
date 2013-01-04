@@ -183,7 +183,11 @@ void CGameContext::CreateDeath(vec2 Pos, int ClientID)
 	}
 }
 
-void CGameContext::CreateSound(vec2 Pos, int Sound, int64_t Mask)
+void CGameContext::CreateSound(vec2 Pos, int Sound)
+{
+	CreateSound(Pos, Sound, CmaskAll());
+}
+void CGameContext::CreateSound(vec2 Pos, int Sound, std::bitset<MAX_CLIENTS> const& Mask)
 {
 	if (Sound < 0)
 		return;
@@ -1587,6 +1591,10 @@ bool CGameContext::IsClientPlayer(int ClientID)
 {
 	return m_apPlayers[ClientID] && m_apPlayers[ClientID]->GetTeam() == TEAM_SPECTATORS ? false : true;
 }
+
+std::bitset<MAX_CLIENTS> const& CmaskAll() { static std::bitset<MAX_CLIENTS> bs; static bool init = false; if (!init) { init = true; bs.set(); } return bs; }
+std::bitset<MAX_CLIENTS> CmaskOne(int ClientID) { std::bitset<MAX_CLIENTS> bs; bs[ClientID] = 1; return bs; }
+std::bitset<MAX_CLIENTS> CmaskAllExceptOne(int ClientID) { std::bitset<MAX_CLIENTS> bs; bs.set(); bs[ClientID] = 0; return bs; }
 
 const char *CGameContext::GameType() { return m_pController && m_pController->m_pGameType ? m_pController->m_pGameType : ""; }
 const char *CGameContext::Version() { return GAME_VERSION; }
