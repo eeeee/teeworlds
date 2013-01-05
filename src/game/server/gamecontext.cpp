@@ -834,6 +834,9 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 		}
 		if(pMsg->m_pMessage[0]=='/')
 		{
+			if (str_quickhash(pMsg->m_pMessage) == m_apPlayers[ClientID]->m_ChatLastHash)
+				m_apPlayers[ClientID]->m_ChatScore += g_Config.m_SvChatPenalty;
+			m_apPlayers[ClientID]->m_ChatLastHash = str_quickhash(pMsg->m_pMessage);
 			if(ProcessSpamProtectionEx(ClientID))
 			{
 				SendChatTarget(ClientID, "Muted text:");
@@ -2267,7 +2270,7 @@ int CGameContext::ProcessSpamProtectionEx(int ClientID)
 		return 1;
 	}
 
-	if ((m_apPlayers[ClientID]->m_ChatScore += g_Config.m_SvChatPenalty/3) > g_Config.m_SvChatThreshold)
+	if ((m_apPlayers[ClientID]->m_ChatScore += g_Config.m_SvChatPenalty/2) > g_Config.m_SvChatThreshold)
 	{
 		Mute(0, &Addr, g_Config.m_SvSpamMuteDuration, Server()->ClientName(ClientID));
 		m_apPlayers[ClientID]->m_ChatScore = 0;
