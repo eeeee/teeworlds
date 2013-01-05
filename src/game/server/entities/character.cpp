@@ -993,6 +993,8 @@ void CCharacter::Snap(int SnappingClient)
 	{
 		if(250 - ((Server()->Tick() - m_LastAction)%(250)) < 5)
 			pCharacter->m_Emote = EMOTE_BLINK;
+		if(m_State == BS_BLOCKED)
+			pCharacter->m_Emote = EMOTE_BLINK;
 	}
 
 	pCharacter->m_PlayerFlags = GetPlayer()->m_PlayerFlags;
