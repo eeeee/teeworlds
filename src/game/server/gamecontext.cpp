@@ -2267,7 +2267,7 @@ int CGameContext::ProcessSpamProtectionEx(int ClientID)
 		return 1;
 	}
 
-	if ((m_apPlayers[ClientID]->m_ChatScore += g_Config.m_SvChatPenalty/5) > g_Config.m_SvChatThreshold)
+	if ((m_apPlayers[ClientID]->m_ChatScore += g_Config.m_SvChatPenalty/3) > g_Config.m_SvChatThreshold)
 	{
 		Mute(0, &Addr, g_Config.m_SvSpamMuteDuration, Server()->ClientName(ClientID));
 		m_apPlayers[ClientID]->m_ChatScore = 0;
