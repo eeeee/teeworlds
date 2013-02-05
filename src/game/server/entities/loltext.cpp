@@ -3,6 +3,8 @@
 #include <game/server/gamecontext.h>
 #include "loltext.h"
 
+#define COUNTOF(A) (sizeof (A) / sizeof (A)[0])
+
 CPlasma::CPlasma(CGameWorld *pGameWorld, CEntity *pParent, vec2 Pos, vec2 Vel, int Lifespan)
 : CEntity(pGameWorld, CGameWorld::ENTTYPE_LASER)
 {
@@ -69,15 +71,49 @@ vec2 CLoltext::TextSize(const char *pText)
 void CLoltext::Create(CGameWorld *pGameWorld, CEntity *pParent, vec2 Pos, vec2 Vel, int Lifespan, const char *pText, bool Center, bool Follow)
 {
 	char c;
+	vec2 HalfTextSz = TextSize(pText)*0.5f;
 	vec2 CurPos = Pos;
 	if (Center)
-		CurPos -= TextSize(pText)*0.5f;
+		CurPos -= HalfTextSz;
 
-	if (pParent && !Follow)
+	if (!Follow)
 	{
-		CurPos += pParent->m_Pos;
-		pParent = 0;
+		if (pParent)
+		{
+			CurPos += pParent->m_Pos;
+			pParent = 0;
+		}
+
+		int ol[COUNTOF(s_liveTexts)];
+		int numol = 0;
+
+		for(size_t i = 0; i < COUNTOF(s_liveTexts); i++)
+			if (s_liveTexts[i].expire > pGameWorld->Server()->Tick()) {
+				if (Overlap(CurPos + HalfTextSz, HalfTextSz*2.f, s_liveTexts[i].center, s_liveTexts[i].size)) {
+					ol[numol++] = i;
+				}
+			}
+
+		if (numol > 0) 
+		{
+			/* naive approach, FIXME replace with cloud supported genetic algorithm */
+			float dy = absolute(CurPos.y + HalfTextSz.y - s_liveTexts[ol[0]].center.y) - (HalfTextSz.y + s_liveTexts[ol[0]].size.y/2.f);
+			if (CurPos.y + HalfTextSz.y > s_liveTexts[ol[0]].center.y)
+				dy = -dy;
+			CurPos.y += dy;
+		}
+
 	}
+
+	for(size_t i = 0; i < COUNTOF(s_liveTexts); i++) {
+		if (s_liveTexts[i].expire < pGameWorld->Server()->Tick()) {
+			s_liveTexts[i].center = CurPos + HalfTextSz;
+			s_liveTexts[i].size = HalfTextSz * 2.f;
+			s_liveTexts[i].expire = pGameWorld->Server()->Tick() + Lifespan;
+			break;
+		}
+	}
+
 
 	while((c = *pText++))
 	{
@@ -94,14 +130,23 @@ void CLoltext::Create(CGameWorld *pGameWorld, CEntity *pParent, vec2 Pos, vec2 V
 	}
 }
 
+bool CLoltext::Overlap(vec2 c1, vec2 s1, vec2 c2, vec2 s2)
+{
+	vec2 d = s1*.5f + s2*.5f;
+
+	return absolute(c2.x - c1.x) < d.x && absolute(c2.y - c1.y) < d.y;
+}
+
 bool CLoltext::HasRepr(char c) // can be removed when we have a full character set
 {
 	for(int y = 0; y < 5; ++y)
 		for(int x = 0; x < 3; ++x)
-			if (s_aaaChars[(unsigned)c][y][x])
+			if (s_aaaChars[(unsigned char)c][y][x])
 				return true;
 	return false;
 }
+
+struct CRect CLoltext::s_liveTexts[16];
 
 bool CLoltext::s_aaaChars[256][5][3] = {
 	{ {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0} }, // ascii 0

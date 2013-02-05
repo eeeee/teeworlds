@@ -30,10 +30,19 @@ class CLoltext
 {
 private:
 	static bool s_aaaChars[256][5][3];
+	static struct CRect s_liveTexts[16]; //used for layout only
+
 	static bool HasRepr(char c);
+	static bool Overlap(vec2 c1, vec2 s1, vec2 c2, vec2 s2);
 public:
 	static vec2 TextSize(const char *pText);
 	static void Create(CGameWorld *pGameWorld, CEntity *pParent, vec2 Pos, vec2 Vel, int Lifespan, const char *pText, bool Center, bool Follow);
+};
+
+struct CRect {
+	vec2 center;
+	vec2 size;
+	int expire;
 };
 
 #endif
