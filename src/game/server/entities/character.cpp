@@ -1057,10 +1057,10 @@ void CCharacter::Snap(int SnappingClient)
 
 void CCharacter::DDWarTick()
 {
-	if (HasFlag() == 0 && g_Config.m_SvFlag0HeatRegen !=0 && Server()->Tick()%(Server()->TickSpeed()*g_Config.m_SvFlag0HeatRegen)==0)
+	if (HasFlag() == 0 && g_Config.m_SvFlag0HeatRegen !=0 && Server()->Tick()%(Server()->TickSpeed()*g_Config.m_SvFlag0HeatRegen)==0 && m_Armor < g_Config.m_SvFlag0HeatCap)
 		IncreaseArmor(1);
 
-	if (HasFlag() == 1 && g_Config.m_SvFlag1HeatRegen !=0 && Server()->Tick()%(Server()->TickSpeed()*g_Config.m_SvFlag1HeatRegen)==0)
+	if (HasFlag() == 1 && g_Config.m_SvFlag1HeatRegen !=0 && Server()->Tick()%(Server()->TickSpeed()*g_Config.m_SvFlag1HeatRegen)==0 && m_Armor < g_Config.m_SvFlag1HeatCap)
 		IncreaseArmor(1);
 
 	if (Ago(m_CKPunishTick, 10000))

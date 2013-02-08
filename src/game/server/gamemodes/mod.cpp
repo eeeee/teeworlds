@@ -253,4 +253,6 @@ void CGameControllerMOD::SetFlagCarrier(int Flag, CCharacter* pCarrier)
 		if (GetFlagCarrier(i) == pCarrier)
 			return;
 	m_apFlags[Flag]->m_pCarryingCharacter = pCarrier;
+	if (g_Config.m_SvTakeFlagSound)
+		GameServer()->CreateSoundGlobal(SOUND_CTF_CAPTURE);
 }
