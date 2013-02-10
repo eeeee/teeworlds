@@ -723,7 +723,7 @@ void CGameContext::OnClientEnter(int ClientID)
 			dd = atoi(d);
 			mm = atoi(m);
 			yy = atoi(y);
-			if((mm == 12 || mm == 1) && (dd == 31 || dd == 1))
+			if((mm == 12 && dd == 31) || (mm == 1 && dd == 1))
 			{
 				char aBuf[128];
 				str_format(aBuf, sizeof(aBuf), "Happy %d from GreYFoX", mm==12?yy+1:yy);
@@ -1188,6 +1188,15 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 	else if (MsgID == NETMSGTYPE_CL_ISDDRACE64)
 	{
 		Server()->SetCustClt(ClientID);
+	}
+	else if (MsgID == NETMSGTYPE_CL_SHOWOTHERS)
+	{
+		if(g_Config.m_SvShowOthers);
+		{
+			// TODO: prevent spam ?
+			CNetMsg_Cl_ShowOthers *pMsg = (CNetMsg_Cl_ShowOthers *)pRawMsg;
+			pPlayer->m_ShowOthers = (bool)pMsg->m_Show;
+		}
 	}
 	else if (MsgID == NETMSGTYPE_CL_SETSPECTATORMODE && !m_World.m_Paused)
 	{
