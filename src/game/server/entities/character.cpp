@@ -1806,9 +1806,12 @@ void CCharacter::BlockKill(bool dead, bool chatblock)
 	if (dead || g_Config.m_SvShowKillers)
 	{
 		CNetMsg_Sv_KillMsg Msg;
-		Msg.m_Killer = killerID;
+		Msg.m_Killer = g_Config.m_SvShowKillers ? killerID : GetPlayer()->GetCID();
 		Msg.m_Victim = GetPlayer()->GetCID();
-		Msg.m_Weapon = dead ? WEAPON_NINJA : WEAPON_HAMMER;
+		if (!g_Config.m_SvShowKillers)
+			Msg.m_Weapon = WEAPON_SELF;
+		else
+			Msg.m_Weapon = dead ? WEAPON_NINJA : WEAPON_HAMMER;
 		Msg.m_ModeSpecial = 0;
 		Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, -1);
 	}
