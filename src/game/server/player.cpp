@@ -85,7 +85,7 @@ CPlayer::CPlayer(CGameContext *pGameServer, int ClientID, int Team)
 	m_LastSQLQuery = 0;
 #endif
 	uidcnt = (uidcnt + 1) & ( (1 << 16) - 1);
-	m_ClientUID = ClientID + (uidcnt << 8);
+	m_ClientUID = ClientID + uidcnt*1000;
 }
 
 CPlayer::~CPlayer()
