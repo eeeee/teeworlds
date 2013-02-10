@@ -1773,10 +1773,18 @@ void CCharacter::BlockKill(bool dead, bool chatblock)
 		SetHelper(-1);
 	CPlayer* killer = GameServer()->GetPlayerByUID(m_Killer);
 	int killerID = GetPlayer()->GetCID();
+	int killerUID = GetPlayer()->GetCUID();
 	if (killer)
+	{
 		killerID = killer->GetCID();
+		killerUID = killer->GetCUID();
+	}
 	if (!dead && killerID == GetPlayer()->GetCID())
 		return;
+
+	char buf[300];
+	str_format(buf, sizeof(buf), "player %d has /killed %d", killerUID, GetPlayer()->GetCUID());
+	GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "hook", buf);
 
 	if (g_Config.m_SvChatblockPunish != 0 && chatblock)
 	{
