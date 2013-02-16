@@ -846,6 +846,9 @@ void CCharacter::Die(int Killer, int Weapon)
 {
 	// we got to wait 0.5 secs before respawning
 	m_pPlayer->m_RespawnTick = Server()->Tick()+Server()->TickSpeed()/2;
+
+	BlockKill(true);
+
 	int ModeSpecial = GameServer()->m_pController->OnCharacterDeath(this, GameServer()->m_apPlayers[Killer], Weapon);
 
 	char aBuf[256];
@@ -856,7 +859,6 @@ void CCharacter::Die(int Killer, int Weapon)
 
 	// send the kill message
 	//SendKillMsg(Killer, Weapon, ModeSpecial);
-	BlockKill(true);
 
 	// a nice sound
 	GameServer()->CreateSound(m_Pos, SOUND_PLAYER_DIE);
