@@ -488,7 +488,7 @@ int CServer::GetClientInfo(int ClientID, CClientInfo *pInfo)
 
 void CServer::GetClientAddr(int ClientID, char *pAddrStr, int Size)
 {
-	if(ClientID >= 0 && ClientID < MAX_CLIENTS && m_aClients[ClientID].m_State == CClient::STATE_INGAME)
+	if(ClientID >= 0 && ClientID < MAX_CLIENTS && m_aClients[ClientID].m_State != CClient::STATE_EMPTY)
 		net_addr_str(m_NetServer.ClientAddr(ClientID), pAddrStr, Size, false);
 }
 
@@ -739,7 +739,8 @@ int CServer::DelClientCallback(int ClientID, const char *pReason, void *pUser)
 	char aAddrStr[NETADDR_MAXSTRSIZE];
 	net_addr_str(pThis->m_NetServer.ClientAddr(ClientID), aAddrStr, sizeof(aAddrStr), true);
 	char aBuf[256];
-	str_format(aBuf, sizeof(aBuf), "client dropped. cid=%d addr=%s reason='%s'", ClientID, aAddrStr,	pReason);
+	char p1[256];
+	str_format(aBuf, sizeof(aBuf), "client dropped: %s reason='%s'", pThis->GameServer()->GetPlayerIDTuple(ClientID, p1, sizeof p1), pReason);
 
 	// notify the mod about the drop
 	if(pThis->m_aClients[ClientID].m_State >= CClient::STATE_READY)
@@ -917,7 +918,8 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 				net_addr_str(m_NetServer.ClientAddr(ClientID), aAddrStr, sizeof(aAddrStr), true);
 
 				char aBuf[256];
-				str_format(aBuf, sizeof(aBuf), "player is ready. ClientID=%x addr=%s", ClientID, aAddrStr);
+				char p1[256];
+				str_format(aBuf, sizeof(aBuf), "%s is ready.", GameServer()->GetPlayerIDTuple(ClientID, p1, sizeof p1));
 				Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "server", aBuf);
 				m_aClients[ClientID].m_State = CClient::STATE_READY;
 				GameServer()->OnClientConnected(ClientID);
@@ -928,11 +930,13 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 		{
 			if(m_aClients[ClientID].m_State == CClient::STATE_READY && GameServer()->IsClientReady(ClientID))
 			{
-				char aAddrStr[NETADDR_MAXSTRSIZE];
-				net_addr_str(m_NetServer.ClientAddr(ClientID), aAddrStr, sizeof(aAddrStr), true);
+				//char aAddrStr[NETADDR_MAXSTRSIZE];
+				//net_addr_str(m_NetServer.ClientAddr(ClientID), aAddrStr, sizeof(aAddrStr), true);
 
 				char aBuf[256];
-				str_format(aBuf, sizeof(aBuf), "player has entered the game. ClientID=%x addr=%s", ClientID, aAddrStr);
+				char p1[256];
+				str_format(aBuf, sizeof(aBuf), "%s has entered the game.", GameServer()->GetPlayerIDTuple(ClientID, p1, sizeof p1));
+				//str_format(aBuf, sizeof(aBuf), "player has entered the game. ClientID=%d addr=%s", ClientID, aAddrStr);
 				Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 				m_aClients[ClientID].m_State = CClient::STATE_INGAME;
 				GameServer()->OnClientEnter(ClientID);
@@ -1000,7 +1004,8 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 			if(Unpacker.Error() == 0 && m_aClients[ClientID].m_Authed)
 			{
 				char aBuf[256];
-				str_format(aBuf, sizeof(aBuf), "ClientID=%d rcon='%s'", ClientID, pCmd);
+				char p1[256];
+				str_format(aBuf, sizeof(aBuf), "%s rcon='%s'", GameServer()->GetPlayerIDTuple(ClientID, p1, sizeof p1), pCmd);
 				Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "server", aBuf);
 				m_RconClientID = ClientID;
 				m_RconAuthLevel = m_aClients[ClientID].m_Authed;
@@ -1036,7 +1041,8 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 						m_aClients[ClientID].m_pRconCmdToSend = Console()->FirstCommandInfo(IConsole::ACCESS_LEVEL_ADMIN, CFGFLAG_SERVER);
 					SendRconLine(ClientID, "Admin authentication successful. Full remote console access granted.");
 					char aBuf[256];
-					str_format(aBuf, sizeof(aBuf), "ClientID=%d authed (admin)", ClientID);
+					char p1[256];
+					str_format(aBuf, sizeof(aBuf), "%s authed (admin)", GameServer()->GetPlayerIDTuple(ClientID, p1, sizeof p1));
 					Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 				}
 				else if(g_Config.m_SvRconModPassword[0] && str_comp(pPw, g_Config.m_SvRconModPassword) == 0)
@@ -1052,7 +1058,8 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 						m_aClients[ClientID].m_pRconCmdToSend = Console()->FirstCommandInfo(IConsole::ACCESS_LEVEL_MOD, CFGFLAG_SERVER);
 					SendRconLine(ClientID, "Moderator authentication successful. Limited remote console access granted.");
 					char aBuf[256];
-					str_format(aBuf, sizeof(aBuf), "ClientID=%d authed (moderator)", ClientID);
+					char p1[256];
+					str_format(aBuf, sizeof(aBuf), "%s authed (moderator)", GameServer()->GetPlayerIDTuple(ClientID, p1, sizeof p1));
 					Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 				}
 				else if(g_Config.m_SvRconMaxTries)
@@ -1096,7 +1103,8 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 				}
 
 				char aBufMsg[256];
-				str_format(aBufMsg, sizeof(aBufMsg), "strange message ClientID=%d msg=%d data_size=%d", ClientID, Msg, pPacket->m_DataSize);
+				char p1[256];
+				str_format(aBufMsg, sizeof(aBufMsg), "strange message from %s msg=%d data_size=%d", GameServer()->GetPlayerIDTuple(ClientID, p1, sizeof p1), Msg, pPacket->m_DataSize);
 				Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "server", aBufMsg);
 				Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "server", aBuf);
 			}
@@ -1588,8 +1596,9 @@ void CServer::ConLogout(IConsole::IResult *pResult, void *pUser)
 		pServer->m_aClients[pServer->m_RconClientID].m_Authed = AUTHED_NO;
 		pServer->m_aClients[pServer->m_RconClientID].m_pRconCmdToSend = 0;
 		pServer->SendRconLine(pServer->m_RconClientID, "Logout successful.");
-		char aBuf[32];
-		str_format(aBuf, sizeof(aBuf), "ClientID=%d logged out", pServer->m_RconClientID);
+		char aBuf[256];
+		char p1[256];
+		str_format(aBuf, sizeof(aBuf), "%s logged out", pServer->GameServer()->GetPlayerIDTuple(pServer->m_RconClientID, p1, sizeof p1));
 		pServer->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 	}
 }

@@ -88,6 +88,8 @@ public:
 	int m_LastActionTick;
 	bool m_StolenSkin;
 	int m_TeamChangeTick;
+	int m_ConnectAt; //timestamp
+
 	struct
 	{
 		int m_TargetX;

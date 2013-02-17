@@ -112,6 +112,15 @@ int CGameContext::GetCIDByUID(int uid)
 	return player->GetCID();
 }
 
+const char *CGameContext::GetPlayerIDTuple(int ClientID, char *dest, size_t destSz)
+{
+	char aAddrStr[64];
+	Server()->GetClientAddr(ClientID, aAddrStr, sizeof aAddrStr);
+
+	str_format(dest, destSz, "\x1f%d,%s,%s\x1f", m_apPlayers[ClientID] ? m_apPlayers[ClientID]->GetCUID() : ClientID, aAddrStr, Server()->ClientName(ClientID));
+	return dest;
+}
+
 void CGameContext::CreateDamageInd(vec2 Pos, float Angle, int Amount)
 {
 	float a = 3 * 3.14159f / 2 + Angle;
@@ -257,9 +266,10 @@ void CGameContext::SendChatTarget(int To, const char *pText)
 void CGameContext::SendChat(int ChatterClientID, int Team, const char *pText)
 {
 	char aBuf[256];
-	if(ChatterClientID >= 0 && ChatterClientID < MAX_CLIENTS)
-		str_format(aBuf, sizeof(aBuf), "%d:%d:%s: %s", ChatterClientID, Team, Server()->ClientName(ChatterClientID), pText);
-	else
+	if(ChatterClientID >= 0 && ChatterClientID < MAX_CLIENTS) {
+		char p1[256];
+		str_format(aBuf, sizeof(aBuf), "%s: %s", GetPlayerIDTuple(ChatterClientID, p1, sizeof p1), pText);
+	} else
 		str_format(aBuf, sizeof(aBuf), "*** %s", pText);
 	Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, Team!=CHAT_ALL?"teamchat":"chat", aBuf);
 
@@ -566,7 +576,9 @@ void CGameContext::OnClientEnter(int ClientID)
 	str_format(aBuf, sizeof(aBuf), "'%s' entered and joined the %s", Server()->ClientName(ClientID), m_pController->GetTeamName(m_apPlayers[ClientID]->GetTeam()));
 	SendChat(-1, CGameContext::CHAT_ALL, aBuf);
 
-	str_format(aBuf, sizeof(aBuf), "team_join player='%d:%s' team=%d", ClientID, Server()->ClientName(ClientID), m_apPlayers[ClientID]->GetTeam());
+	char p1[256];
+	str_format(aBuf, sizeof(aBuf), "team_join %s team=%d",
+			GetPlayerIDTuple(ClientID, p1, sizeof p1), m_apPlayers[ClientID]->GetTeam());
 	Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
 
 	m_VoteUpdate = true;
@@ -580,6 +592,7 @@ void CGameContext::OnClientConnected(int ClientID)
 	m_apPlayers[ClientID] = new(ClientID) CPlayer(this, ClientID, StartTeam);
 	//players[client_id].init(client_id);
 	//players[client_id].client_id = client_id;
+	m_apPlayers[ClientID]->m_ConnectAt = time_timestamp();
 
 	(void)m_pController->CheckTeamBalance();
 
@@ -605,7 +618,14 @@ void CGameContext::OnClientDrop(int ClientID, const char *pReason)
 {
 	AbortVoteKickOnDisconnect(ClientID);
 
-	m_apPlayers[ClientID]->OnDisconnect(pReason);
+	int PlayTime = time_timestamp() - m_apPlayers[ClientID]->m_ConnectAt;
+	if (PlayTime < 1)
+	{
+		char aBuf[256];
+		str_format(aBuf, sizeof(aBuf), "ban %d 1 throttled", ClientID);
+		Console()->ExecuteLine(aBuf);
+	} else
+		m_apPlayers[ClientID]->OnDisconnect(pReason);
 
 	delete m_apPlayers[ClientID];
 	m_apPlayers[ClientID] = 0;
@@ -691,7 +711,8 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 					if (!IChatCtl::Dispatch(pPlayer, pMsgStart))
 					{
 						char aBuf[256];
-						str_format(aBuf, sizeof(aBuf), "player %d issued %s", pPlayer->GetCUID(), pMsgStart);
+						char p1[256];
+						str_format(aBuf, sizeof(aBuf), "%s: %s", GetPlayerIDTuple(pPlayer->GetCID(), p1, sizeof p1), pMsgStart);
 						Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "chatcommand", aBuf);
 					}
 				}
@@ -1057,12 +1078,19 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 		char aNewName[MAX_NAME_LENGTH];
 		str_copy(aNewName, pMsg->m_pName, sizeof aNewName);
 
+		char aOldTuple[256];
+		GetPlayerIDTuple(ClientID, aOldTuple, sizeof aOldTuple);
+
 		Server()->SetClientName(ClientID, aNewName);
 		if(str_comp(aOldName, Server()->ClientName(ClientID)) != 0)
 		{
 			char aChatText[256];
 			str_format(aChatText, sizeof(aChatText), "'%s' changed name to '%s'", aOldName, Server()->ClientName(ClientID));
 			SendChat(-1, CGameContext::CHAT_ALL, aChatText);
+
+			char p1[256];
+			str_format(aChatText, sizeof aChatText, "namechange: %s --> %s", aOldTuple, GetPlayerIDTuple(ClientID, p1, sizeof p1));
+			Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aChatText);
 		}
 		Server()->SetClientClan(ClientID, pMsg->m_pClan);
 		Server()->SetClientCountry(ClientID, pMsg->m_Country);

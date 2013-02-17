@@ -852,9 +852,10 @@ void CCharacter::Die(int Killer, int Weapon)
 	int ModeSpecial = GameServer()->m_pController->OnCharacterDeath(this, GameServer()->m_apPlayers[Killer], Weapon);
 
 	char aBuf[256];
-	str_format(aBuf, sizeof(aBuf), "kill killer='%d:%s' victim='%d:%s' weapon=%d special=%d",
-		Killer, Server()->ClientName(Killer),
-		m_pPlayer->GetCID(), Server()->ClientName(m_pPlayer->GetCID()), Weapon, ModeSpecial);
+	char p1[256], p2[256];
+	str_format(aBuf, sizeof(aBuf), "kill: %s --> %s weapon=%d special=%d",
+		GameServer()->GetPlayerIDTuple(Killer, p1, sizeof p1),
+		GameServer()->GetPlayerIDTuple(m_pPlayer->GetCID(), p2, sizeof p2), Weapon, ModeSpecial);
 	GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
 
 	// send the kill message
@@ -1192,8 +1193,10 @@ void CCharacter::BlockHelp()
 			Msg.m_ModeSpecial = 0;
 			Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, -1);
 			char buf[300];
-			str_format(buf, sizeof(buf), "player %d has /helped %d", m_Helper, GetPlayer()->GetCUID());
-			GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "hook", buf);
+			char p1[256], p2[256];
+			str_format(buf, sizeof(buf), "help: %s --> %s", GameServer()->GetPlayerIDTuple(helper->GetCID(), p1, sizeof p1),
+					GameServer()->GetPlayerIDTuple(GetPlayer()->GetCID(), p2, sizeof p2));
+			GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "ddwar", buf);
 		}
 	}
 }
@@ -1229,7 +1232,9 @@ void CCharacter::BlockKill(bool dead)
 	if (m_Chatblocked)
 	{
 		char buf[300];
-		str_format(buf, sizeof(buf), "%s chatkilled %s", Server()->ClientName(killerID), Server()->ClientName(GetPlayer()->GetCID()));
+		char p1[256], p2[256];
+		str_format(buf, sizeof(buf), "chatblock: %s --> %s", GameServer()->GetPlayerIDTuple(killerID, p1, sizeof p1),
+				GameServer()->GetPlayerIDTuple(GetPlayer()->GetCID(), p2, sizeof p2));
 		GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "ddwar", buf);
 
 		vec2 pos;
@@ -1251,8 +1256,10 @@ void CCharacter::BlockKill(bool dead)
 	else
 	{
 		char buf[300];
-		str_format(buf, sizeof(buf), "player %d has /killed %d", killer->GetCUID(), GetPlayer()->GetCUID());
-		GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "hook", buf);
+		char p1[256], p2[256];
+		str_format(buf, sizeof(buf), "block: %s --> %s", GameServer()->GetPlayerIDTuple(killer->GetCID(), p1, sizeof p1),
+				GameServer()->GetPlayerIDTuple(GetPlayer()->GetCID(), p2, sizeof p2));
+		GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "ddwar", buf);
 
 		if (killer->GetCharacter())
 			for (int i=0;i<2;i++)
