@@ -117,6 +117,7 @@ public:
 	class CCharacter *GetPlayerChar(int ClientID);
 	CPlayer* GetPlayerByUID(int uid);
 	virtual int GetCIDByUID(int uid);
+	virtual const char *GetPlayerIDTuple(int ClientID, char *dest, size_t destSz);
 
 	int m_LockTeams;
 

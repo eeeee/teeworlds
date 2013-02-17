@@ -120,9 +120,9 @@ void CGameControllerMOD::Tick()
 				F->m_pCarryingCharacter->GetPlayer()->SetTeam(i, false, false);
 
 				char aBuf[256];
-				str_format(aBuf, sizeof(aBuf), "flag_grab player='%d:%s'",
-					F->m_pCarryingCharacter->GetPlayer()->GetCID(),
-					Server()->ClientName(F->m_pCarryingCharacter->GetPlayer()->GetCID()));
+				char p1[256];
+				str_format(aBuf, sizeof(aBuf), "flag_grab %s",
+					GameServer()->GetPlayerIDTuple(F->m_pCarryingCharacter->GetPlayer()->GetCID(), p1, sizeof p1));
 				GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
 
 				for(int c = 0; c < MAX_CLIENTS; c++)
