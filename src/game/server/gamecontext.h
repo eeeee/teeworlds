@@ -207,7 +207,6 @@ public:
 	virtual const char *Version();
 	virtual const char *NetVersion();
 	virtual const char *NetVersionCust();
-	virtual const char *AccVersion();
 };
 
 inline int64_t CmaskAll() { return -1LL; }

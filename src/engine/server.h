@@ -186,7 +186,6 @@ public:
 	virtual const char *Version() = 0;
 	virtual const char *NetVersion() = 0;
 	virtual const char *NetVersionCust() = 0;
-	virtual const char *AccVersion() = 0;
 
 	virtual int GetCIDByUID(int uid) = 0;
 	virtual const char *GetPlayerIDTuple(int ClientID, char *dest, size_t destSz) = 0;

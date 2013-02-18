@@ -1864,7 +1864,6 @@ const char *CGameContext::GameType() { return m_pController && m_pController->m_
 const char *CGameContext::Version() { return GAME_VERSION; }
 const char *CGameContext::NetVersion() { return GAME_NETVERSION; }
 const char *CGameContext::NetVersionCust() { return GAME_NETVERSION_CUST; }
-const char *CGameContext::AccVersion() { return GAME_ACCVERSION_HASH; }
 
 IGameServer *CreateGameServer() { return new CGameContext; }
 
