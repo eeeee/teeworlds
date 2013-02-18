@@ -619,7 +619,7 @@ void CGameContext::OnClientDrop(int ClientID, const char *pReason)
 	AbortVoteKickOnDisconnect(ClientID);
 
 	int PlayTime = time_timestamp() - m_apPlayers[ClientID]->m_ConnectAt;
-	if (PlayTime < 1)
+	if (g_Config.m_SvThrottle && PlayTime < g_Config.m_SvThrottle)
 	{
 		char aBuf[256];
 		str_format(aBuf, sizeof(aBuf), "ban %d 1 throttled", ClientID);
