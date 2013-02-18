@@ -4,7 +4,6 @@
 #define GAME_VERSION_H
 #include "generated/nethash.cpp"
 #include "generated/nethash_cust.c"
-#include "generated/acchash.c"
 #define GAME_VERSION "0.6 trunk"
 #define GAME_NETVERSION "0.6 " GAME_NETVERSION_HASH
 #define GAME_NETVERSION_CUST "0.6 " GAME_NETVERSION_HASH_CUST
