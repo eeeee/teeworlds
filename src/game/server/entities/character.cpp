@@ -1034,7 +1034,10 @@ void CCharacter::Snap(int SnappingClient)
 	pCharacter->m_Weapon = m_ActiveWeapon == -1 ? (g_Config.m_SvNowepsKnife ? NUM_WEAPONS : WEAPON_GUN) : m_ActiveWeapon; // dangerous
 	pCharacter->m_AttackTick = m_AttackTick;
 
-	pCharacter->m_Direction = m_Input.m_Direction;
+	if (m_Core.m_Frozen)
+		pCharacter->m_Direction = 0;
+	else
+		pCharacter->m_Direction = m_Input.m_Direction;
 
 	if(m_pPlayer->GetCID() == SnappingClient || SnappingClient == -1 ||
 		(!g_Config.m_SvStrictSpectateMode && m_pPlayer->GetCID() == GameServer()->m_apPlayers[SnappingClient]->m_SpectatorID))
