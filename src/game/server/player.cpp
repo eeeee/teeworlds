@@ -394,7 +394,7 @@ void CPlayer::FindDuplicateSkins()
 			if ((GameServer()->m_apPlayers[i]->m_TeeInfos.m_UseCustomColor == m_OrigTeeInfos.m_UseCustomColor) &&
 			(GameServer()->m_apPlayers[i]->m_TeeInfos.m_ColorFeet == m_OrigTeeInfos.m_ColorFeet) &&
 			(GameServer()->m_apPlayers[i]->m_TeeInfos.m_ColorBody == m_OrigTeeInfos.m_ColorBody) &&
-			!str_comp(GameServer()->m_apPlayers[i]->m_TeeInfos.m_SkinName, m_OrigTeeInfos.m_SkinName))
+			!str_comp(GameServer()->m_apPlayers[i]->m_TeeInfos.m_SkinName, m_TeeInfos.m_SkinName))
 			{
 				m_StolenSkin = 1;
 				return;
