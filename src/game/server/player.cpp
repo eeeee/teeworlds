@@ -223,10 +223,6 @@ void CPlayer::OnDisconnect(const char *pReason)
 		else
 			str_format(aBuf, sizeof(aBuf), "'%s' has left the game", Server()->ClientName(m_ClientID));
 		GameServer()->SendChat(-1, CGameContext::CHAT_ALL, aBuf);
-
-		char p1[256];
-		str_format(aBuf, sizeof(aBuf), "leave %s", GameServer()->GetPlayerIDTuple(m_ClientID, p1, sizeof p1));
-		GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "game", aBuf);
 	}
 }
 

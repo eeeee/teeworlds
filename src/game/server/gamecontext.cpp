@@ -577,8 +577,7 @@ void CGameContext::OnClientEnter(int ClientID)
 	SendChat(-1, CGameContext::CHAT_ALL, aBuf);
 
 	char p1[256];
-	str_format(aBuf, sizeof(aBuf), "team_join %s team=%d",
-			GetPlayerIDTuple(ClientID, p1, sizeof p1), m_apPlayers[ClientID]->GetTeam());
+	str_format(aBuf, sizeof(aBuf), "client_enter: %s", GetPlayerIDTuple(ClientID, p1, sizeof p1));
 	Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
 
 	m_VoteUpdate = true;
@@ -616,17 +615,21 @@ void CGameContext::OnClientConnected(int ClientID)
 
 void CGameContext::OnClientDrop(int ClientID, const char *pReason)
 {
+	char aBuf[256];
 	AbortVoteKickOnDisconnect(ClientID);
 
 	int PlayTime = time_timestamp() - m_apPlayers[ClientID]->m_ConnectAt;
 	if (g_Config.m_SvThrottle && PlayTime < g_Config.m_SvThrottle)
 	{
-		char aBuf[256];
 		str_format(aBuf, sizeof(aBuf), "ban %d 1 throttled", ClientID);
 		Console()->ExecuteLine(aBuf);
 	} else
 		m_apPlayers[ClientID]->OnDisconnect(pReason);
 
+	char p1[256];
+	str_format(aBuf, sizeof(aBuf), "client_leave: %s",
+			GetPlayerIDTuple(ClientID, p1, sizeof p1));
+	Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
 	delete m_apPlayers[ClientID];
 	m_apPlayers[ClientID] = 0;
 	
