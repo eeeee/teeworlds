@@ -1096,8 +1096,11 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 		if(str_comp(aOldName, Server()->ClientName(ClientID)) != 0)
 		{
 			char aChatText[256];
-			str_format(aChatText, sizeof(aChatText), "'%s' changed name to '%s'", aOldName, Server()->ClientName(ClientID));
-			SendChat(-1, CGameContext::CHAT_ALL, aChatText);
+			if (!IsMuted(ClientID))
+			{
+				str_format(aChatText, sizeof(aChatText), "'%s' changed name to '%s'", aOldName, Server()->ClientName(ClientID));
+				SendChat(-1, CGameContext::CHAT_ALL, aChatText);
+			}
 
 			char p1[256];
 			str_format(aChatText, sizeof aChatText, "namechange: %s --> %s", aOldTuple, GetPlayerIDTuple(ClientID, p1, sizeof p1));
@@ -1908,4 +1911,19 @@ void CGameContext::Mute(const char *pIP, int Secs, const char *pDisplayName)
 	}
 	else // no free slot found
 		Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", "mute array is full");
+}
+
+bool CGameContext::IsMuted(int ClientID)
+{
+	char aIP[64]; aIP[0] = '\0';
+	Server()->GetClientAddr(ClientID, aIP, sizeof aIP);
+
+	if (!aIP[0])
+		return false;
+
+	for(int z = 0; z < MAX_MUTES; ++z) //..in order to add a new mute
+		if (m_aMutes[z].m_IP[0] && str_comp(m_aMutes[z].m_IP, aIP) == 0 && m_aMutes[z].m_Expire > Server()->Tick())
+			return true;
+
+	return false;
 }

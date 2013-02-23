@@ -96,6 +96,7 @@ class CGameContext : public IGameServer
 
 	static struct CMute m_aMutes[MAX_MUTES];
 	void Mute(const char *pIP, int Secs, const char *pDisplayName);
+	bool IsMuted(int ClientID);
 public:
 	IServer *Server() const { return m_pServer; }
 	class IConsole *Console() { return m_pConsole; }
