@@ -115,6 +115,7 @@ int CGameContext::GetCIDByUID(int uid)
 const char *CGameContext::GetPlayerIDTuple(int ClientID, char *dest, size_t destSz)
 {
 	char aAddrStr[64];
+	aAddrStr[0] = '\0';
 	Server()->GetClientAddr(ClientID, aAddrStr, sizeof aAddrStr);
 
 	str_format(dest, destSz, "\x1f%d,%s,%s\x1f", m_apPlayers[ClientID] ? m_apPlayers[ClientID]->GetCUID() : ClientID, aAddrStr, Server()->ClientName(ClientID));
@@ -615,26 +616,33 @@ void CGameContext::OnClientConnected(int ClientID)
 
 void CGameContext::OnClientDrop(int ClientID, const char *pReason)
 {
+	if (!m_apPlayers[ClientID])
+		return;
+
 	char aBuf[256];
 	AbortVoteKickOnDisconnect(ClientID);
 
 	int PlayTime = time_timestamp() - m_apPlayers[ClientID]->m_ConnectAt;
-	if (g_Config.m_SvThrottle && PlayTime < g_Config.m_SvThrottle)
-	{
-		str_format(aBuf, sizeof(aBuf), "ban %d 1 throttled", ClientID);
-		Console()->ExecuteLine(aBuf);
-	} else
-		m_apPlayers[ClientID]->OnDisconnect(pReason);
+	m_apPlayers[ClientID]->OnDisconnect(pReason);
 
-	char p1[256];
-	str_format(aBuf, sizeof(aBuf), "client_leave: %s",
-			GetPlayerIDTuple(ClientID, p1, sizeof p1));
+	char p1[256]; p1[0] = '\0';
+	GetPlayerIDTuple(ClientID, p1, sizeof p1);
+	str_format(aBuf, sizeof(aBuf), "client_leave: %s", p1);
 	Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
+
 	delete m_apPlayers[ClientID];
 	m_apPlayers[ClientID] = 0;
 	
 	(void)m_pController->CheckTeamBalance();
 	m_VoteUpdate = true;
+	
+	char aIP[64]; aIP[0] = '\0';
+	Server()->GetClientAddr(ClientID, aIP, sizeof aIP);
+	if (g_Config.m_SvThrottle && PlayTime < g_Config.m_SvThrottle && *aIP)
+	{
+		str_format(aBuf, sizeof(aBuf), "ban %s 1 throttled", aIP);
+		Console()->ExecuteLine(aBuf);
+	}
 
 	// update spectator modes
 	for(int i = 0; i < MAX_CLIENTS; ++i)
