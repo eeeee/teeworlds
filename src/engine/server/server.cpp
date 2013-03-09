@@ -1134,7 +1134,7 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 	}
 }
 
-void CServer::SendServerInfo(const NETADDR *pAddr, int Token)
+void CServer::SendServerInfo(const NETADDR *pAddr, int Token, bool Extended)
 {
 	CNetChunk Packet;
 	CPacker p;
@@ -1155,16 +1155,24 @@ void CServer::SendServerInfo(const NETADDR *pAddr, int Token)
 
 	p.Reset();
 
-	p.AddRaw(SERVERBROWSE_INFO, sizeof(SERVERBROWSE_INFO));
+	p.AddRaw(Extended?SERVERBROWSE_INFO64:SERVERBROWSE_INFO, sizeof(Extended?SERVERBROWSE_INFO64:SERVERBROWSE_INFO));
 	str_format(aBuf, sizeof(aBuf), "%d", Token);
 	p.AddString(aBuf, 6);
 
 	p.AddString(GameServer()->Version(), 32);
-	if (ClientCount < VANILLA_MAX_CLIENTS)
-		p.AddString(g_Config.m_SvName, 64);
+	if (!Extended)
+	{
+			p.AddString(g_Config.m_SvName, 256);
+	}
 	else
 	{
-		str_format(aBuf, sizeof(aBuf), "%s - %d/%d online", g_Config.m_SvName, ClientCount, m_NetServer.MaxClients()); p.AddString(aBuf, 64);
+		if (ClientCount < VANILLA_MAX_CLIENTS)
+			p.AddString(g_Config.m_SvName, 64);
+		else
+		{
+			str_format(aBuf, sizeof(aBuf), "%s - %d/%d online", g_Config.m_SvName, ClientCount, m_NetServer.MaxClients());
+			p.AddString(aBuf, 64);
+		}
 	}
 	p.AddString(GetMapName(), 32);
 
@@ -1179,15 +1187,19 @@ void CServer::SendServerInfo(const NETADDR *pAddr, int Token)
 	p.AddString(aBuf, 2);
 
 	int MaxClients = m_NetServer.MaxClients();
-	if (ClientCount >= VANILLA_MAX_CLIENTS)
+	if (!Extended)
 	{
-		if (ClientCount < MaxClients)
-			ClientCount = VANILLA_MAX_CLIENTS - 1;
-		else
-			ClientCount = VANILLA_MAX_CLIENTS;
+		if (ClientCount >= VANILLA_MAX_CLIENTS)
+		{
+			if (ClientCount < MaxClients)
+				ClientCount = VANILLA_MAX_CLIENTS - 1;
+			else
+				ClientCount = VANILLA_MAX_CLIENTS;
+		}
+		if (MaxClients > VANILLA_MAX_CLIENTS) MaxClients = VANILLA_MAX_CLIENTS;
 	}
+
 	if (PlayerCount > ClientCount) PlayerCount = ClientCount;
-	if (MaxClients > VANILLA_MAX_CLIENTS) MaxClients = VANILLA_MAX_CLIENTS;
 
 	str_format(aBuf, sizeof(aBuf), "%d", PlayerCount); p.AddString(aBuf, 3); // num players
 	str_format(aBuf, sizeof(aBuf), "%d", MaxClients-g_Config.m_SvSpectatorSlots); p.AddString(aBuf, 3); // max players
@@ -1242,6 +1254,11 @@ void CServer::PumpNetwork()
 					mem_comp(Packet.m_pData, SERVERBROWSE_GETINFO, sizeof(SERVERBROWSE_GETINFO)) == 0)
 				{
 					SendServerInfo(&Packet.m_Address, ((unsigned char *)Packet.m_pData)[sizeof(SERVERBROWSE_GETINFO)]);
+				}
+				else if(Packet.m_DataSize == sizeof(SERVERBROWSE_GETINFO64)+1 &&
+					mem_comp(Packet.m_pData, SERVERBROWSE_GETINFO64, sizeof(SERVERBROWSE_GETINFO64)) == 0)
+				{
+					SendServerInfo(&Packet.m_Address, ((unsigned char *)Packet.m_pData)[sizeof(SERVERBROWSE_GETINFO64)], true);
 				}
 			}
 		}
