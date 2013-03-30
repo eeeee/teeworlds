@@ -12,6 +12,7 @@ class CGameControllerMOD : public IGameController
 private:
 	int m_NextBroadcastTick;
 	int m_NextAnnounceTick;
+	int m_aLastBounceTick[MAX_CLIENTS];
 
 	class CFlag *m_apFlags[2];
 public:

@@ -19,6 +19,9 @@ CGameControllerMOD::CGameControllerMOD(class CGameContext *pGameServer)
 	m_GameFlags = GAMEFLAG_FLAGS; // GAMEFLAG_TEAMS makes it a two-team gamemode
 	m_apFlags[0] = 0;
 	m_apFlags[1] = 0;
+
+	for(int i = 0; i < MAX_CLIENTS; i++)
+		m_aLastBounceTick[i] = 0;
 }
 
 void CGameControllerMOD::Tick()
@@ -30,18 +33,17 @@ void CGameControllerMOD::Tick()
 	if(GameServer()->m_World.m_ResetRequested || GameServer()->m_World.m_Paused)
 		return;
 
-	static int LastBounceTick[MAX_CLIENTS] = {0};
 	for(int i = 0; i < MAX_CLIENTS; i++)
 	{
 		CCharacter *pChr = GameServer()->GetPlayerChar(i);
-		if (!pChr || LastBounceTick[i] + g_Config.m_SvBounceDelay > Server()->Tick())
+		if (!pChr || m_aLastBounceTick[i] + g_Config.m_SvBounceDelay > Server()->Tick())
 			continue;
 		if (GameServer()->Collision()->GetCollisionAt(pChr->m_Pos.x, pChr->m_Pos.y) == TILE_BOUNCE)
 		{
 			GameServer()->CreateExplosion(pChr->m_Pos, i, WEAPON_GRENADE, true);
 			GameServer()->CreateSound(pChr->m_Pos, SOUND_GRENADE_EXPLODE);
 			pChr->TakeDamage(vec2(g_Config.m_SvBounceXforce/10.0f, g_Config.m_SvBounceYforce/10.0f), 0, i, WEAPON_GRENADE);
-			LastBounceTick[i] = Server()->Tick();
+			m_aLastBounceTick[i] = Server()->Tick();
 		}
 	}
 
