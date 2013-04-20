@@ -1134,7 +1134,7 @@ void CServer::ProcessClientPacket(CNetChunk *pPacket)
 	}
 }
 
-void CServer::SendServerInfo(const NETADDR *pAddr, int Token)
+void CServer::SendServerInfo(const NETADDR *pAddr, int Token, bool Extended, int Offset)
 {
 	CNetChunk Packet;
 	CPacker p;
@@ -1155,16 +1155,24 @@ void CServer::SendServerInfo(const NETADDR *pAddr, int Token)
 
 	p.Reset();
 
-	p.AddRaw(SERVERBROWSE_INFO, sizeof(SERVERBROWSE_INFO));
+	p.AddRaw(Extended?SERVERBROWSE_INFO64:SERVERBROWSE_INFO, sizeof(Extended?SERVERBROWSE_INFO64:SERVERBROWSE_INFO));
 	str_format(aBuf, sizeof(aBuf), "%d", Token);
 	p.AddString(aBuf, 6);
 
 	p.AddString(GameServer()->Version(), 32);
-	if (ClientCount < VANILLA_MAX_CLIENTS)
-		p.AddString(g_Config.m_SvName, 64);
+	if (Extended)
+	{
+			p.AddString(g_Config.m_SvName, 256);
+	}
 	else
 	{
-		str_format(aBuf, sizeof(aBuf), "%s - %d/%d online", g_Config.m_SvName, ClientCount, m_NetServer.MaxClients()); p.AddString(aBuf, 64);
+		if (ClientCount < VANILLA_MAX_CLIENTS)
+			p.AddString(g_Config.m_SvName, 64);
+		else
+		{
+			str_format(aBuf, sizeof(aBuf), "%s - %d/%d online", g_Config.m_SvName, ClientCount, m_NetServer.MaxClients());
+			p.AddString(aBuf, 64);
+		}
 	}
 	p.AddString(GetMapName(), 32);
 
@@ -1179,27 +1187,45 @@ void CServer::SendServerInfo(const NETADDR *pAddr, int Token)
 	p.AddString(aBuf, 2);
 
 	int MaxClients = m_NetServer.MaxClients();
-	if (ClientCount >= VANILLA_MAX_CLIENTS)
+	if (!Extended)
 	{
-		if (ClientCount < MaxClients)
-			ClientCount = VANILLA_MAX_CLIENTS - 1;
-		else
-			ClientCount = VANILLA_MAX_CLIENTS;
+		if (ClientCount >= VANILLA_MAX_CLIENTS)
+		{
+			if (ClientCount < MaxClients)
+				ClientCount = VANILLA_MAX_CLIENTS - 1;
+			else
+				ClientCount = VANILLA_MAX_CLIENTS;
+		}
+		if (MaxClients > VANILLA_MAX_CLIENTS) MaxClients = VANILLA_MAX_CLIENTS;
 	}
-	if (PlayerCount > ClientCount) PlayerCount = ClientCount;
-	if (MaxClients > VANILLA_MAX_CLIENTS) MaxClients = VANILLA_MAX_CLIENTS;
+
+	if (PlayerCount > ClientCount)
+		PlayerCount = ClientCount;
 
 	str_format(aBuf, sizeof(aBuf), "%d", PlayerCount); p.AddString(aBuf, 3); // num players
 	str_format(aBuf, sizeof(aBuf), "%d", MaxClients-g_Config.m_SvSpectatorSlots); p.AddString(aBuf, 3); // max players
 	str_format(aBuf, sizeof(aBuf), "%d", ClientCount); p.AddString(aBuf, 3); // num clients
 	str_format(aBuf, sizeof(aBuf), "%d", MaxClients); p.AddString(aBuf, 3); // max clients
+
+	if (Extended)
+		p.AddInt(Offset);
+
+	int ClientsPerPacket = Extended ? 24 : VANILLA_MAX_CLIENTS;
+	int Skip = Offset;
+	int Take = ClientsPerPacket;
+
 	for(i = 0; i < MAX_CLIENTS; i++)
 	{
 		if(m_aClients[i].m_State != CClient::STATE_EMPTY)
 		{
-			if (ClientCount-- == 0) break;
+			if (Skip-- > 0)
+				continue;
+			if (--Take < 0)
+				break;
+
 			p.AddString(ClientName(i), MAX_NAME_LENGTH); // client name
 			p.AddString(ClientClan(i), MAX_CLAN_LENGTH); // client clan
+
 			str_format(aBuf, sizeof(aBuf), "%d", m_aClients[i].m_Country); p.AddString(aBuf, 6); // client country
 			str_format(aBuf, sizeof(aBuf), "%d", m_aClients[i].m_Score); p.AddString(aBuf, 6); // client score
 			str_format(aBuf, sizeof(aBuf), "%d", GameServer()->IsClientPlayer(i)?1:0); p.AddString(aBuf, 2); // is player?
@@ -1212,6 +1238,9 @@ void CServer::SendServerInfo(const NETADDR *pAddr, int Token)
 	Packet.m_DataSize = p.Size();
 	Packet.m_pData = p.Data();
 	m_NetServer.Send(&Packet);
+
+	if (Extended && Take < 0)
+		SendServerInfo(pAddr, Token, Extended, Offset + ClientsPerPacket);
 }
 
 void CServer::UpdateServerInfo()
@@ -1242,6 +1271,11 @@ void CServer::PumpNetwork()
 					mem_comp(Packet.m_pData, SERVERBROWSE_GETINFO, sizeof(SERVERBROWSE_GETINFO)) == 0)
 				{
 					SendServerInfo(&Packet.m_Address, ((unsigned char *)Packet.m_pData)[sizeof(SERVERBROWSE_GETINFO)]);
+				}
+				else if(Packet.m_DataSize == sizeof(SERVERBROWSE_GETINFO64)+1 &&
+					mem_comp(Packet.m_pData, SERVERBROWSE_GETINFO64, sizeof(SERVERBROWSE_GETINFO64)) == 0)
+				{
+					SendServerInfo(&Packet.m_Address, ((unsigned char *)Packet.m_pData)[sizeof(SERVERBROWSE_GETINFO64)], true);
 				}
 			}
 		}
