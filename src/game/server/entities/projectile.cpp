@@ -143,7 +143,7 @@ void CProjectile::Tick()
 		}
 		else if (m_Weapon == WEAPON_GUN)
 		{
-			GameServer()->CreateDamageInd(CurPos, -atan2(m_Direction.x, m_Direction.y), 1, (m_Owner != -1)? TeamMask : -1LL);
+			GameServer()->CreateDamageInd(CurPos, -atan2(m_Direction.x, m_Direction.y), 3, (m_Owner != -1)? TeamMask : -1LL);
 			GameServer()->m_World.DestroyEntity(this);
 		}
 		else
